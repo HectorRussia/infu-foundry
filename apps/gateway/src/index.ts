@@ -1,10 +1,23 @@
 import { Container, getContainer } from '@cloudflare/containers';
+import { forwardToOrigin } from './origin';
 import { routeRequest } from './router';
 
 interface Env {
   ASSETS: Fetcher;
-  BACKEND: DurableObjectNamespace<Backend>;
+  // Free plan: Go runs elsewhere (Render) and /api/* is forwarded to API_ORIGIN.
+  API_ORIGIN?: string;
+  GATEWAY_SECRET?: string;
+  // Workers Paid: only bound by wrangler.containers.jsonc.
+  BACKEND?: DurableObjectNamespace<Backend>;
   DATABASE_URL?: string;
+}
+
+function backendFor(env: Env) {
+  return (request: Request): Promise<Response> => {
+    if (env.API_ORIGIN) return forwardToOrigin(request, env.API_ORIGIN, env.GATEWAY_SECRET);
+    if (env.BACKEND) return getContainer(env.BACKEND, 'infu-foundry-api').fetch(request);
+    throw new Error('No API backend configured');
+  };
 }
 
 export class Backend extends Container<Env> {
@@ -40,10 +53,6 @@ export class Backend extends Container<Env> {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    return routeRequest(
-      request,
-      (incoming) => getContainer(env.BACKEND, 'infu-foundry-api').fetch(incoming),
-      (incoming) => env.ASSETS.fetch(incoming),
-    );
+    return routeRequest(request, backendFor(env), (incoming) => env.ASSETS.fetch(incoming));
   },
 } satisfies ExportedHandler<Env>;

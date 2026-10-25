@@ -1,0 +1,28 @@
+// Workers Paid only: runs Go in a Cloudflare Container. See docs/deployment.md.
+// Keep in sync with wrangler.jsonc apart from the container bindings.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "infu-foundry",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-25",
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "../web/out",
+    "binding": "ASSETS",
+    "html_handling": "force-trailing-slash",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api", "/api/*"],
+  },
+  "containers": [
+    {
+      "class_name": "Backend",
+      "image": "../api/Dockerfile",
+      "max_instances": 1,
+      "instance_type": "lite",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "BACKEND", "class_name": "Backend" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Backend"] }],
+}

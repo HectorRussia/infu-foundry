@@ -17,7 +17,8 @@
     "format": "prettier --write .",
     "check": "pnpm --filter @infu-foundry/web check && pnpm --filter @infu-foundry/gateway check && node scripts/api.mjs check",
     "build": "pnpm --filter @infu-foundry/web build && node scripts/api.mjs build && pnpm --filter @infu-foundry/gateway build",
-    "preview:cloudflare": "pnpm --filter @infu-foundry/web build && pnpm --filter @infu-foundry/gateway preview",
+    "preview:cloudflare": "pnpm --filter @infu-foundry/web build && pnpm --filter @infu-foundry/gateway preview:containers",
+    "deploy:cloudflare": "pnpm --filter @infu-foundry/web build && pnpm --filter @infu-foundry/gateway run deploy",
     "preview:assets": "pnpm --filter @infu-foundry/web build && node scripts/preview-assets.mjs"
   },
   "devDependencies": {

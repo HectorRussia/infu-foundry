@@ -14,7 +14,8 @@ const config = parse(readFileSync(join(directory, 'wrangler.jsonc'), 'utf8'), er
 if (errors.length) throw new Error('Invalid Wrangler configuration');
 config.main = resolve(directory, config.main);
 config.assets.directory = resolve(directory, config.assets.directory);
-for (const container of config.containers) container.image = resolve(directory, container.image);
+for (const container of config.containers ?? [])
+  container.image = resolve(directory, container.image);
 config.dev = { enable_containers: false };
 delete config.$schema;
 const generated = join(directory, '.wrangler', 'assets-preview.json');

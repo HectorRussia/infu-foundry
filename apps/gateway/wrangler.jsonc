@@ -1,3 +1,6 @@
+// Workers Free: static web + /api/* forwarded to API_ORIGIN (Go on Render).
+// Set API_ORIGIN as a var and GATEWAY_SECRET with `wrangler secret put`.
+// Paid Containers setup lives in wrangler.containers.jsonc. See docs/deployment.md.
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "infu-foundry",
@@ -11,16 +14,4 @@
     "not_found_handling": "404-page",
     "run_worker_first": ["/api", "/api/*"],
   },
-  "containers": [
-    {
-      "class_name": "Backend",
-      "image": "../api/Dockerfile",
-      "max_instances": 1,
-      "instance_type": "lite",
-    },
-  ],
-  "durable_objects": {
-    "bindings": [{ "name": "BACKEND", "class_name": "Backend" }],
-  },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Backend"] }],
 }
