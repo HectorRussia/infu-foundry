@@ -18,7 +18,7 @@ Gateway ทำ routing และ Container lifecycle เท่านั้น
 ## Frontend
 
 - App Router + TypeScript strict + Tailwind CSS utilities; global CSS กำหนด theme tokens และ base styles
-- ธีมมืดและ mobile-first: หน้าแรกเป็นการ์ด Login เดี่ยว ภายในมีคลังเนื้อหาและ Editor คอลัมน์เดียว มีหัวข้อและ Content; ไม่มี dashboard/sidebar/bottom navigation
+- ธีมมืดและ mobile-first: หน้า Login แยกจาก workspace shell โดยไม่มี sidebar; ภายในมี sidebar บน desktop และเมนูพับได้บนมือถือ มีเพียงคลังเนื้อหาและ Editor หัวข้อ/Content ไม่มี dashboard หรือ bottom navigation
 - `/login/` เป็น alias ของหน้าตา Login ที่ `/`; เมื่อทำ authentication จริงจะส่งไป `/contents/` หลัง Login สำเร็จ ตอนนี้ยังไม่มี session หรือ route protection
 - `src/app`: routes/layout; `components`: shared UI; `features`: auth/content UI; `lib`: API configuration
 - Static export และ trailing slash ทำให้ทุก route มี HTML สำหรับเปิดตรงและ refresh

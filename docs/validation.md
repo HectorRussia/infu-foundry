@@ -1,5 +1,15 @@
 # Validation — 25 October 2026
 
+## Login and workspace separation (latest UI)
+
+- User confirmed UI-only scope; authentication remains deferred
+- `/` and `/login/` match the supplied welcome/form design without sidebar; only workspace routes render the sidebar
+- Desktop sidebar has contents/editor links; mobile uses a native collapsible menu that resets on route changes
+- In-app browser: compared login at 506×726 and sidebar at 1217×888 against supplied images; tested desktop editor navigation and mobile menu → library navigation
+- At 320px, library and login had no horizontal overflow; login had zero sidebar elements. Final browser error log was empty
+- Web lint, TypeScript and static build passed. Visual comparison recorded in `design-qa.md`
+- Workspace routes remain public previews until real authentication is implemented; no fake login/session was added
+
 ## Simplified MVP screens (supersedes the navigation described below)
 
 - `/` now shows only the login card; `/login/` uses the same component. No dashboard, sidebar or bottom navigation

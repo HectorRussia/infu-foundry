@@ -48,7 +48,8 @@ Web build มีขั้นตอนแก้ชื่อไฟล์ RSC ท�
 
 UI ใช้ Tailwind CSS ธีมมืด ออกแบบสำหรับมือถือเป็นหลัก: ช่องกรอกขนาด 16px ขึ้นไป
 และปุ่มคัดลอก/บันทึกที่เข้าถึงได้จากด้านล่างหน้าจอ ภายในมีเพียงคลังเนื้อหาและพื้นที่เขียน
-ไม่มี sidebar, bottom navigation หรือ dashboard; `/login/` ยังเปิดการ์ด Login เดียวกับหน้าแรกได้
+หน้า Login ไม่มี sidebar; ภายในมี sidebar บน desktop และเมนูพับได้บนมือถือ ไม่มี dashboard หรือ bottom navigation
+`/login/` ยังเปิดหน้า Login เดียวกับหน้าแรกได้
 เมื่อทำ authentication จริงสำเร็จจะพาไป `/contents/`; ตอนนี้ยังไม่มี session หรือ route protection
 
 ข้อความใน editor อยู่ใน React state เท่านั้น ออกจากหน้าหรือ refresh แล้วหาย
