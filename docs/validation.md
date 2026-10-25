@@ -1,5 +1,13 @@
 # Validation — 25 October 2026
 
+## Cloudflare Workers Free deploy
+
+- Gateway tests 5/5 (incl. external-origin forwarding and gateway-secret stripping); dry-run builds passed for both `wrangler.jsonc` (ASSETS only) and `wrangler.containers.jsonc`
+- Deployed with `pnpm deploy:cloudflare` to https://infu-foundry.ponkrit-wo.workers.dev (Workers Free, ASSETS binding only)
+- Live: `/`, `/login/`, `/contents/`, `/contents/editor/` → 200; `/missing/` → 404; `/api/v1/*` → 503 `no-store` + `Retry-After: 5` because `API_ORIGIN` is not set yet
+- Production contents page showed the load-failure message with no console errors
+- Render, `API_ORIGIN`/`GATEWAY_SECRET` and Go-side secret checking remain to be done
+
 ## Local dev login (latest)
 
 - Development-only account enables UI login without Go/Neon calls. Production still has disabled login and public preview workspace routes

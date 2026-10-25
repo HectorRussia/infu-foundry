@@ -34,6 +34,7 @@ pnpm dev
 | `pnpm build`              | Export หน้าเว็บ, build Go binary และ bundle Worker แบบ dry-run                         |
 | `pnpm preview:cloudflare` | Build เว็บและรัน Workers + Container ในเครื่องที่ port 8787                            |
 | `pnpm preview:assets`     | ตรวจ Worker/static assets บน Windows โดยไม่รัน Container; API จะแสดงว่าเชื่อมต่อไม่ได้ |
+| `pnpm deploy:cloudflare`  | Build เว็บแล้ว deploy Worker แบบ Workers Free (ต้อง `wrangler login` ก่อน)             |
 
 `pnpm build` ไม่ deploy และไม่ยืนยันว่า Docker image หรือ Containers รันได้จริง
 ใช้คำสั่ง preview เพื่อตรวจการทำงานครบเส้นทาง
@@ -79,6 +80,7 @@ scripts/         Node.js scripts สำหรับ Windows/macOS/Linux
 ```
 
 อ่านรายละเอียดและข้อตกลงรอบถัดไปใน [Architecture](docs/architecture.md)
+แผน hosting (Cloudflare + Render ช่วง MVP) อยู่ใน [Deployment plan](docs/deployment.md)
 
 ## Backend stack และฐานข้อมูล
 
@@ -155,7 +157,7 @@ API routing ส่ง 503 พร้อม `Retry-After` เมื่อ backend 
 หากจะใช้ WSL ให้ติดตั้ง Node/pnpm/Go และ dependencies ในสภาพแวดล้อม Linux แยกจาก Windows
 
 ยังไม่ได้สร้างบริการ Cloudflare, Neon, domain หรือ secrets ใด ๆ
-Cloudflare Containers สำหรับ deploy จริงต้องใช้ Workers Paid plan
+Cloudflare Containers สำหรับ deploy จริงต้องใช้ Workers Paid plan ช่วง MVP จึงวาง Go บน Render ดู [Deployment plan](docs/deployment.md)
 
 ## การตรวจรับ
 

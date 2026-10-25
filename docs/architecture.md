@@ -7,8 +7,10 @@ Browser
   → Cloudflare Worker
       → Workers Static Assets: Next.js export
       → /api/*: Go Container
-                   → Neon PostgreSQL (รอบถัดไป)
+                   → Neon PostgreSQL
 ```
+
+ช่วง MVP `/api/*` จะส่งไป Go บน Render แทน Container ดู [Deployment plan](deployment.md)
 
 ใช้ pnpm workspace สำหรับ web/gateway และ Go module แยกสำหรับ backend
 Next.js เป็น UI อย่างเดียว ไม่มี Next.js route handlers, Server Actions หรือ runtime SSR
