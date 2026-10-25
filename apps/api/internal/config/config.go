@@ -7,9 +7,10 @@ import (
 )
 
 type Config struct {
-	Port        string
-	Environment string
-	DatabaseURL string
+	Port          string
+	Environment   string
+	DatabaseURL   string
+	GatewaySecret string
 }
 
 func Load() (Config, error) {
@@ -28,5 +29,10 @@ func Load() (Config, error) {
 	if environment != "development" && environment != "production" {
 		return Config{}, fmt.Errorf("APP_ENV must be development or production")
 	}
-	return Config{Port: port, Environment: environment, DatabaseURL: os.Getenv("DATABASE_URL")}, nil
+	return Config{
+		Port:          port,
+		Environment:   environment,
+		DatabaseURL:   os.Getenv("DATABASE_URL"),
+		GatewaySecret: os.Getenv("GATEWAY_SECRET"),
+	}, nil
 }

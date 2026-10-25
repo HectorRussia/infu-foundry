@@ -131,16 +131,3 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 	}
 	return nil
 }
-
-// UserIDByEmail resolves the development author; it never creates users.
-func (s *Store) UserIDByEmail(ctx context.Context, email string) (string, error) {
-	var ids []string
-	err := s.db.WithContext(ctx).Raw(`SELECT id FROM users WHERE lower(email) = lower(?)`, email).Scan(&ids).Error
-	if err != nil {
-		return "", err
-	}
-	if len(ids) == 0 {
-		return "", ErrNotFound
-	}
-	return ids[0], nil
-}

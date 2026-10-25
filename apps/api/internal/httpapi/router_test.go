@@ -40,7 +40,7 @@ func TestHTTPBoundary(t *testing.T) {
 			if tc.method == http.MethodOptions {
 				r.Header.Set("Access-Control-Request-Method", "GET")
 			}
-			app := New(slog.New(slog.NewTextHandler(io.Discard, nil)), tc.development, nil)
+			app := New(slog.New(slog.NewTextHandler(io.Discard, nil)), Options{Development: tc.development})
 			w, err := app.Test(r)
 			if err != nil {
 				t.Fatal(err)
@@ -74,7 +74,7 @@ func TestHTTPBoundary(t *testing.T) {
 
 func TestPanicIsSanitizedAndLoggedAsFailure(t *testing.T) {
 	var logs bytes.Buffer
-	app := New(slog.New(slog.NewJSONHandler(&logs, nil)), false, nil)
+	app := New(slog.New(slog.NewJSONHandler(&logs, nil)), Options{})
 	app.Get("/panic", func(c fiber.Ctx) error { panic("secret-password") })
 	response, err := app.Test(httptest.NewRequest("GET", "/panic?token=private", nil))
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"infu-foundry/apps/api/internal/auth"
 	"infu-foundry/apps/api/internal/config"
 	"infu-foundry/apps/api/internal/contents"
 	"infu-foundry/apps/api/internal/database"
@@ -31,7 +32,7 @@ func run(logger *slog.Logger) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	var store httpapi.ContentStore
+	opts := httpapi.Options{Development: cfg.Environment == "development", GatewaySecret: cfg.GatewaySecret}
 	if cfg.DatabaseURL != "" {
 		db, err := database.Open(ctx, cfg.DatabaseURL)
 		if err != nil {
@@ -39,11 +40,15 @@ func run(logger *slog.Logger) error {
 		}
 		defer db.Close()
 		logger.Info("database connected")
-		store = contents.NewStore(db.ORM)
+		opts.Contents = contents.NewStore(db.ORM)
+		opts.Auth = auth.NewStore(db.ORM)
 	} else {
 		logger.Info("database not configured; running foundation API")
 	}
-	app := httpapi.New(logger, cfg.Environment == "development", store)
+	if !opts.Development && opts.GatewaySecret == "" {
+		logger.Warn("GATEWAY_SECRET not set; the API accepts requests from any origin host")
+	}
+	app := httpapi.New(logger, opts)
 	return app.Listen(":"+cfg.Port, fiber.ListenConfig{
 		GracefulContext:       ctx,
 		ShutdownTimeout:       10 * time.Second,

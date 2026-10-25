@@ -5,27 +5,28 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
+	"infu-foundry/apps/api/internal/auth"
 	"infu-foundry/apps/api/internal/contents"
 )
 
 const (
-	testAuthorID  = "11111111-1111-1111-1111-111111111111"
 	testContentID = "22222222-2222-2222-2222-222222222222"
+	testToken     = "valid-session-token"
+	testPassword  = "correct-password"
 )
 
-type fakeStore struct {
-	items      map[string]contents.Content
-	authorSeed bool
-}
+var testUser = auth.User{ID: "11111111-1111-1111-1111-111111111111", Email: "horn@example.com", DisplayName: "Horn"}
 
-func newFakeStore() *fakeStore {
-	return &fakeStore{items: map[string]contents.Content{}, authorSeed: true}
-}
+type fakeStore struct{ items map[string]contents.Content }
+
+func newFakeStore() *fakeStore { return &fakeStore{items: map[string]contents.Content{}} }
 
 func (f *fakeStore) List(context.Context) ([]contents.Summary, error) {
 	items := []contents.Summary{}
@@ -44,7 +45,7 @@ func (f *fakeStore) Get(_ context.Context, id string) (contents.Content, error) 
 }
 
 func (f *fakeStore) Create(_ context.Context, authorID string, in contents.Input) (contents.Content, error) {
-	c := contents.Content{ID: testContentID, AuthorID: authorID, AuthorName: "Dev", Title: in.Title, Body: in.Body, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	c := contents.Content{ID: testContentID, AuthorID: authorID, AuthorName: "Horn", Title: in.Title, Body: in.Body, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 	f.items[c.ID] = c
 	return c, nil
 }
@@ -67,64 +68,135 @@ func (f *fakeStore) Delete(_ context.Context, id string) error {
 	return nil
 }
 
-func (f *fakeStore) UserIDByEmail(_ context.Context, email string) (string, error) {
-	if !f.authorSeed || email != DevAuthorEmail {
-		return "", contents.ErrNotFound
+type fakeAuth struct{ loggedOut bool }
+
+func (f *fakeAuth) Login(_ context.Context, email, password string) (auth.User, string, error) {
+	if email != testUser.Email || password != testPassword {
+		return auth.User{}, "", auth.ErrInvalidCredentials
 	}
-	return testAuthorID, nil
+	return testUser, testToken, nil
 }
 
-func TestContentRoutes(t *testing.T) {
-	store := newFakeStore()
-	app := New(slog.New(slog.NewTextHandler(io.Discard, nil)), true, store)
-	do := func(method, path, body string, want int) string {
-		t.Helper()
-		r := httptest.NewRequest(method, path, strings.NewReader(body))
-		if body != "" {
-			r.Header.Set("Content-Type", "application/json")
-		}
-		w, err := app.Test(r)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer w.Body.Close()
-		out, _ := io.ReadAll(w.Body)
-		if w.StatusCode != want {
-			t.Fatalf("%s %s: status %d, want %d (%s)", method, path, w.StatusCode, want, out)
-		}
-		if w.Header.Get("Cache-Control") != "no-store" && want < 400 {
-			t.Fatalf("%s %s must not be cached", method, path)
-		}
-		return string(out)
+func (f *fakeAuth) UserBySession(_ context.Context, token string) (auth.User, error) {
+	if token != testToken || f.loggedOut {
+		return auth.User{}, auth.ErrNoSession
 	}
-
-	created := do("POST", "/api/v1/contents", `{"title":"  หัวข้อ  ","body":"เนื้อหา"}`, 201)
-	var item contents.Content
-	if err := json.Unmarshal([]byte(created), &item); err != nil || item.Title != "หัวข้อ" || item.AuthorID != testAuthorID {
-		t.Fatalf("unexpected created content %s", created)
-	}
-	do("GET", "/api/v1/contents", "", 200)
-	do("GET", "/api/v1/contents/"+testContentID, "", 200)
-	do("PUT", "/api/v1/contents/"+testContentID, `{"title":"ใหม่","body":"แก้แล้ว"}`, 200)
-	do("DELETE", "/api/v1/contents/"+testContentID, "", 204)
-	do("GET", "/api/v1/contents/"+testContentID, "", 404)
-
-	do("GET", "/api/v1/contents/not-a-uuid", "", 404)
-	do("POST", "/api/v1/contents", `{"title":"","body":"   "}`, 422)
-	do("POST", "/api/v1/contents", `{"title":"`+strings.Repeat("ก", 301)+`","body":"x"}`, 422)
-	do("POST", "/api/v1/contents", `{bad json`, 400)
-
-	store.authorSeed = false
-	do("POST", "/api/v1/contents", `{"title":"x","body":"y"}`, 503)
+	return testUser, nil
 }
 
-func TestContentRoutesHiddenOutsideDevelopment(t *testing.T) {
-	app := New(slog.New(slog.NewTextHandler(io.Discard, nil)), false, newFakeStore())
-	w, err := app.Test(httptest.NewRequest("GET", "/api/v1/contents", nil))
+func (f *fakeAuth) Logout(context.Context, string) error {
+	f.loggedOut = true
+	return nil
+}
+
+type client struct {
+	t   *testing.T
+	app *fiber.App
+}
+
+func (cl client) do(method, path, body string, want int, headers ...string) *http.Response {
+	cl.t.Helper()
+	r := httptest.NewRequest(method, path, strings.NewReader(body))
+	if body != "" {
+		r.Header.Set("Content-Type", "application/json")
+	}
+	for i := 0; i+1 < len(headers); i += 2 {
+		r.Header.Set(headers[i], headers[i+1])
+	}
+	w, err := cl.app.Test(r)
 	if err != nil {
-		t.Fatal(err)
+		cl.t.Fatal(err)
 	}
-	if w.StatusCode != 404 {
-		t.Fatalf("production must not expose content routes, got %d", w.StatusCode)
+	if w.StatusCode != want {
+		out, _ := io.ReadAll(w.Body)
+		cl.t.Fatalf("%s %s: status %d, want %d (%s)", method, path, w.StatusCode, want, out)
 	}
+	return w
+}
+
+func newClient(t *testing.T, opts Options) client {
+	return client{t: t, app: New(slog.New(slog.NewTextHandler(io.Discard, nil)), opts)}
+}
+
+func TestContentRoutesRequireSession(t *testing.T) {
+	cl := newClient(t, Options{Contents: newFakeStore(), Auth: &fakeAuth{}})
+	session := []string{"Cookie", sessionCookie + "=" + testToken}
+
+	cl.do("GET", "/api/v1/contents", "", 401)
+	cl.do("POST", "/api/v1/contents", `{"title":"x","body":"y"}`, 401)
+	cl.do("GET", "/api/v1/contents", "", 401, "Cookie", sessionCookie+"=forged")
+
+	w := cl.do("POST", "/api/v1/contents", `{"title":"  หัวข้อ  ","body":"เนื้อหา"}`, 201, session...)
+	var item contents.Content
+	if err := json.NewDecoder(w.Body).Decode(&item); err != nil || item.Title != "หัวข้อ" || item.AuthorID != testUser.ID {
+		t.Fatalf("author must be the session user, got %+v", item)
+	}
+	if w.Header.Get("Cache-Control") != "no-store" {
+		t.Fatal("content responses must not be cached")
+	}
+	cl.do("GET", "/api/v1/contents", "", 200, session...)
+	cl.do("GET", "/api/v1/contents/"+testContentID, "", 200, session...)
+	cl.do("PUT", "/api/v1/contents/"+testContentID, `{"title":"ใหม่","body":"แก้แล้ว"}`, 200, session...)
+	cl.do("DELETE", "/api/v1/contents/"+testContentID, "", 204, session...)
+	cl.do("GET", "/api/v1/contents/"+testContentID, "", 404, session...)
+
+	cl.do("GET", "/api/v1/contents/not-a-uuid", "", 404, session...)
+	cl.do("POST", "/api/v1/contents", `{"title":"","body":"   "}`, 422, session...)
+	cl.do("POST", "/api/v1/contents", `{"title":"`+strings.Repeat("ก", 301)+`","body":"x"}`, 422, session...)
+	cl.do("POST", "/api/v1/contents", `{bad json`, 400, session...)
+	cl.do("POST", "/api/v1/contents", `title=x`, 415, append(session, "Content-Type", "application/x-www-form-urlencoded")...)
+}
+
+func TestLoginLogoutAndMe(t *testing.T) {
+	fa := &fakeAuth{}
+	cl := newClient(t, Options{Contents: newFakeStore(), Auth: fa})
+
+	cl.do("GET", "/api/v1/auth/me", "", 401)
+	cl.do("POST", "/api/v1/auth/login", `{"email":"horn@example.com","password":"wrong"}`, 401)
+	w := cl.do("POST", "/api/v1/auth/login", `{"email":" Horn@Example.com ","password":"`+testPassword+`"}`, 200)
+	cookie := w.Header.Get("Set-Cookie")
+	for _, want := range []string{sessionCookie + "=" + testToken, "HttpOnly", "SameSite=Lax", "Path=/api", "Secure"} {
+		if !strings.Contains(strings.ToLower(cookie), strings.ToLower(want)) {
+			t.Fatalf("session cookie %q missing %q", cookie, want)
+		}
+	}
+	session := []string{"Cookie", sessionCookie + "=" + testToken}
+	cl.do("GET", "/api/v1/auth/me", "", 200, session...)
+	cl.do("POST", "/api/v1/auth/logout", `{}`, 204, session...)
+	cl.do("GET", "/api/v1/auth/me", "", 401, session...)
+}
+
+func TestLoginRateLimitPerEmail(t *testing.T) {
+	cl := newClient(t, Options{Auth: &fakeAuth{}})
+	for range maxLoginFailures {
+		cl.do("POST", "/api/v1/auth/login", `{"email":"horn@example.com","password":"wrong"}`, 401)
+	}
+	cl.do("POST", "/api/v1/auth/login", `{"email":"horn@example.com","password":"`+testPassword+`"}`, 429)
+	cl.do("POST", "/api/v1/auth/login", `{"email":"other@example.com","password":"wrong"}`, 401)
+}
+
+func TestDevelopmentCookieAllowsLocalHTTP(t *testing.T) {
+	cl := newClient(t, Options{Development: true, Auth: &fakeAuth{}})
+	w := cl.do("POST", "/api/v1/auth/login", `{"email":"horn@example.com","password":"`+testPassword+`"}`, 200)
+	if strings.Contains(strings.ToLower(w.Header.Get("Set-Cookie")), "secure") {
+		t.Fatal("development cookie must work on http://localhost")
+	}
+	pre := cl.do("OPTIONS", "/api/v1/auth/login", "", 204, "Origin", "http://localhost:3000", "Access-Control-Request-Method", "POST")
+	if pre.Header.Get("Access-Control-Allow-Credentials") != "true" {
+		t.Fatal("local web must be allowed to send the session cookie")
+	}
+}
+
+func TestGatewaySecret(t *testing.T) {
+	cl := newClient(t, Options{GatewaySecret: "shh", Contents: newFakeStore(), Auth: &fakeAuth{}})
+	cl.do("GET", "/api/v1/health", "", 200)
+	cl.do("GET", "/api/v1/auth/me", "", 404)
+	cl.do("GET", "/api/v1/auth/me", "", 404, "X-Gateway-Secret", "wrong")
+	cl.do("GET", "/api/v1/auth/me", "", 401, "X-Gateway-Secret", "shh")
+}
+
+func TestNoDatabaseMeansNoAuthOrContentRoutes(t *testing.T) {
+	cl := newClient(t, Options{})
+	cl.do("GET", "/api/v1/contents", "", 404)
+	cl.do("POST", "/api/v1/auth/login", `{"email":"a","password":"b"}`, 404)
 }
