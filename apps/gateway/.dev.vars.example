@@ -1,0 +1,4 @@
+# No credentials are required for local preview.
+# Keep future secrets in .dev.vars (ignored by Git), never in NEXT_PUBLIC_*.
+# Optional: forwarded server-side to the Go Container when configured.
+# DATABASE_URL=postgresql://user:password@your-host/dbname?sslmode=require
