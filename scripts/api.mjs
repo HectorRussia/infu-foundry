@@ -1,8 +1,12 @@
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { spawnSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 export const apiDirectory = fileURLToPath(new URL('../apps/api/', import.meta.url));
+
+// Local-only secrets (gitignored); variables already set in the shell take precedence.
+const envFile = fileURLToPath(new URL('../apps/api/.env', import.meta.url));
+if (existsSync(envFile)) process.loadEnvFile(envFile);
 export const binaryPath = fileURLToPath(
   new URL(`../apps/api/bin/server${process.platform === 'win32' ? '.exe' : ''}`, import.meta.url),
 );
