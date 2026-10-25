@@ -11,7 +11,9 @@ import (
 	recoverer "github.com/gofiber/fiber/v3/middleware/recover"
 )
 
-func New(logger *slog.Logger, development bool) *fiber.App {
+// New builds the API. Content routes exist only in development with a database:
+// there is no real authentication yet, so they must never be exposed in production.
+func New(logger *slog.Logger, development bool, store ContentStore) *fiber.App {
 	app := fiber.New(fiber.Config{
 		AppName:       "Infu Foundry API",
 		StrictRouting: true,
@@ -52,8 +54,12 @@ func New(logger *slog.Logger, development bool) *fiber.App {
 		})
 		app.Use(cors.New(cors.Config{
 			AllowOrigins: []string{"http://localhost:3000"},
-			AllowMethods: []string{"GET", "HEAD", "OPTIONS"},
+			AllowMethods: []string{"GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowHeaders: []string{"Content-Type"},
 		}))
+	}
+	if development && store != nil {
+		registerContents(app.Group("/api/v1"), store, logger)
 	}
 	app.Add([]string{fiber.MethodGet, fiber.MethodHead}, "/api/v1/health", func(c fiber.Ctx) error {
 		c.Set("Cache-Control", "no-store")

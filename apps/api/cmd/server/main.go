@@ -11,6 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"infu-foundry/apps/api/internal/config"
+	"infu-foundry/apps/api/internal/contents"
 	"infu-foundry/apps/api/internal/database"
 	"infu-foundry/apps/api/internal/httpapi"
 )
@@ -30,6 +31,7 @@ func run(logger *slog.Logger) error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	var store httpapi.ContentStore
 	if cfg.DatabaseURL != "" {
 		db, err := database.Open(ctx, cfg.DatabaseURL)
 		if err != nil {
@@ -37,11 +39,11 @@ func run(logger *slog.Logger) error {
 		}
 		defer db.Close()
 		logger.Info("database connected")
-		// Inject db.ORM into repositories when adding the real content/auth routes.
+		store = contents.NewStore(db.ORM)
 	} else {
 		logger.Info("database not configured; running foundation API")
 	}
-	app := httpapi.New(logger, cfg.Environment == "development")
+	app := httpapi.New(logger, cfg.Environment == "development", store)
 	return app.Listen(":"+cfg.Port, fiber.ListenConfig{
 		GracefulContext:       ctx,
 		ShutdownTimeout:       10 * time.Second,
