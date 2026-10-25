@@ -1,0 +1,34 @@
+openapi: 3.1.0
+info:
+  title: Infu Foundry API
+  version: 0.1.0
+  description: Foundation API. Authentication and content persistence are not implemented yet.
+servers:
+  - url: /api/v1
+    description: Same-origin Cloudflare gateway
+  - url: http://localhost:8080/api/v1
+    description: Local Go development server
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Check API liveness without a database dependency
+      responses:
+        '200':
+          description: API is running
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+        '503':
+          description: Gateway cannot reach a healthy backend
