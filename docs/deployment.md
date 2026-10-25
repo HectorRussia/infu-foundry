@@ -1,6 +1,7 @@
 # Deployment plan — Infu Foundry
 
-สถานะ: **แผนที่ตกลงแล้ว ยังไม่ได้ลงมือ** (ตัดสินใจ 2026-10-25)
+สถานะ: **ใช้งานจริงแล้ว** (2026-10-25) — เว็บ https://infu-foundry.ponkrit-wo.workers.dev,
+API https://infu-foundry-api.onrender.com (เรียกผ่าน Worker เท่านั้น)
 เป้าหมายช่วง MVP คือค่าใช้จ่าย $0 แล้วย้าย API กลับมา Cloudflare Containers เมื่อพร้อมจ่าย
 
 ## สรุปการตัดสินใจ

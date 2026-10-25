@@ -1,5 +1,13 @@
 # Validation — 25 October 2026
 
+## Production: Cloudflare + Render
+
+- Render Blueprint deployed `infu-foundry-api` (free, Singapore); `API_ORIGIN` set as a Worker var, `GATEWAY_SECRET` as a Worker secret and a Render env var
+- Render direct: health 200; `/auth/me` without the secret → 404, with the secret → 401 (database connected, auth active)
+- Through the Worker: health 200, contents without login 401, wrong password 401, Horn login 200 with `HttpOnly; Secure; SameSite=Lax; Path=/api` cookie, `/auth/me` and contents 200, logout 204 then 401; a client-supplied `X-Gateway-Secret` is overwritten by the Worker
+- Production web build redirects to `/login/` when `/auth/me` returns 401 and no longer shows preview notices
+- Logging in through the browser form on production is left to the account owners
+
 ## Real login (email/password + sessions)
 
 - `create_sessions` applied on Neon after review; Horn and Ploy accounts created with `pnpm db:create-user` (bcrypt, password via stdin)
