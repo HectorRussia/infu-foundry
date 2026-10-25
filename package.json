@@ -14,6 +14,7 @@
     "db:status": "node scripts/api.mjs migrate status",
     "db:up": "node scripts/api.mjs migrate up",
     "db:down": "node scripts/api.mjs migrate down",
+    "db:create-user": "node scripts/api.mjs create-user",
     "format": "prettier --write .",
     "check": "pnpm --filter @infu-foundry/web check && pnpm --filter @infu-foundry/gateway check && node scripts/api.mjs check",
     "build": "pnpm --filter @infu-foundry/web build && node scripts/api.mjs build && pnpm --filter @infu-foundry/gateway build",

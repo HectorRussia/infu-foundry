@@ -46,6 +46,14 @@ if (command === 'check') {
   });
   if (result.error) console.error(result.error.message);
   process.exitCode = result.status ?? 1;
+} else if (command === 'create-user') {
+  const result = spawnSync('go', ['run', './cmd/createuser', ...process.argv.slice(3)], {
+    cwd: apiDirectory,
+    stdio: 'inherit',
+    env: process.env,
+  });
+  if (result.error) console.error(result.error.message);
+  process.exitCode = result.status ?? 1;
 } else if (command === 'run') {
   buildAPI();
   const server = spawn(binaryPath, [], { cwd: apiDirectory, stdio: 'inherit', env: process.env });
