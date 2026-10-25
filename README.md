@@ -7,7 +7,7 @@ A creative workspace for organizing ideas and content — from first draft to pu
 Foundation scaffold + คลังเนื้อหาที่บันทึกลง Neon จริงใน local development:
 ตาราง `users` / `contents`, Content API (list/create/get/update/soft delete) และหน้า editor/คลังเนื้อหาที่เรียก API
 ผู้ใช้ทุกคนเห็นเนื้อหาทั้งหมดร่วมกัน (`author_id` บันทึกแค่ผู้เขียน) ยังไม่มี authentication จริงหรือการเรียก AI ภายนอก
-Content API เปิดเฉพาะ `APP_ENV=development` และใช้ dev author `dev@infu.local`; production ยังเป็นหน้าตัวอย่างสาธารณะ
+Login จริงด้วย email/password (ไม่มีการสมัคร บัญชีสร้างด้วย `pnpm db:create-user`) และ session cookie จาก Go
 
 ## เริ่มพัฒนาในเครื่อง
 
@@ -44,24 +44,26 @@ Web build มีขั้นตอนแก้ชื่อไฟล์ RSC ท�
 ## หน้าตัวอย่าง
 
 - `/` หน้าแรกเป็นการ์ด Login เดี่ยว ไม่มี sidebar หรือหน้าภาพรวม
-- `/login/` บัญชีทดสอบใช้ได้เฉพาะ local dev; production ปุ่มเข้าสู่ระบบปิดไว้ ไม่มีการส่ง credentials
-- `/contents/` คลังเนื้อหาว่าง ไม่มีข้อมูลสมมติที่แสดงว่าเก็บแล้ว
-- `/contents/editor/` มีเฉพาะหัวข้อและ Content พิมพ์และคัดลอก Content ได้ ปุ่มบันทึกปิดไว้
+- `/login/` เข้าสู่ระบบด้วยบัญชีที่สร้างไว้ล่วงหน้า
+- `/contents/` คลังเนื้อหาที่ทุกบัญชีเห็นร่วมกัน
+- `/contents/editor/` เขียน แก้ไข ลบ และคัดลอกเนื้อหา (`?id=` สำหรับเนื้อหาเดิม)
 
 UI ใช้ Tailwind CSS ธีมมืด ออกแบบสำหรับมือถือเป็นหลัก: ช่องกรอกขนาด 16px ขึ้นไป
 และปุ่มคัดลอก/บันทึกที่เข้าถึงได้จากด้านล่างหน้าจอ ภายในมีเพียงคลังเนื้อหาและพื้นที่เขียน
 หน้า Login ไม่มี sidebar; ภายในมี sidebar บน desktop และเมนูพับได้บนมือถือ ไม่มี dashboard หรือ bottom navigation
 `/login/` ยังเปิดหน้า Login เดียวกับหน้าแรกได้
-เมื่อทำ authentication จริงจะใช้ Go ตรวจ session; ตอนนี้มีเฉพาะ dev session ฝั่ง browser สำหรับทดลอง UI
+Go ตรวจ session จาก cookie `infu_session` (HttpOnly, SameSite=Lax, Secure บน production, อายุ 30 วัน)
+เปิด workspace โดยไม่มี session จะถูกพากลับ `/login/`
 
-### บัญชี Local dev
+### บัญชีผู้ใช้
 
-รัน `pnpm dev` แล้วใช้ **dev@infu.local** / **infu-dev-123** ที่หน้า Login
-เมื่อสำเร็จจะไป `/contents/`; ใช้ปุ่มออกจากระบบใน sidebar หรือเมนูมือถือเพื่อกลับหน้า Login
-Session ทดสอบอยู่ใน `sessionStorage` ของแท็บ รีเฟรชยังอยู่ แต่ไม่เก็บรหัสผ่าน
-เปิด workspace โดยไม่มี dev session จะถูกพากลับ `/login/`
+ไม่มีหน้าสมัคร สร้างหรือเปลี่ยนรหัสด้วยคำสั่งนี้ (รหัสผ่านอ่านจาก stdin เก็บเป็น bcrypt hash):
 
-เปิดใช้เฉพาะ `NODE_ENV=development` โดยไม่มี production override; production build ตัด credentials ออก
+```powershell
+pnpm db:create-user -email someone@example.com -name Someone
+pnpm db:create-user -email someone@example.com -reset
+```
+
 นี่เป็น UI simulation ที่แก้ไขข้ามได้จาก browser ไม่ใช่ authentication หรือการป้องกัน API และไม่เรียก Go/Neon
 
 ข้อความใน editor อยู่ใน React state เท่านั้น ออกจากหน้าหรือ refresh แล้วหาย
@@ -103,14 +105,13 @@ GORM ใช้ simple protocol เพื่อไม่ผูก prepared statem
 ตั้ง `MIGRATION_DATABASE_URL` เป็น **direct URL** สำหรับ migration โดยเฉพาะ; URL สำหรับ runtime
 ใน `DATABASE_URL` สามารถเป็น pooled URL ได้ คำสั่ง migration ไม่ fallback ไปใช้ runtime URL
 รายละเอียดอยู่ใน [Migrations](apps/api/migrations/README.md)
-Migration แรกสร้างตาราง `users` และ `contents` ข้อมูลสำหรับ dev เท่านั้นอยู่ใน `apps/api/seeds/`
-และรันด้วยมือครั้งเดียวต่อ database/branch ไม่ใช่ migration
+Migrations สร้างตาราง `users`, `contents` และ `sessions`
 
 ### เชื่อม Neon ในเครื่อง
 
 1. คัดลอก `apps/api/.env.example` เป็น `apps/api/.env` (gitignored)
 2. Neon > Connect: เปิด Connection pooling → `DATABASE_URL`; ปิด → `MIGRATION_DATABASE_URL`
-3. `pnpm db:up` แล้วรัน `apps/api/seeds/dev_user.sql` หนึ่งครั้ง
+3. `pnpm db:up` แล้วสร้างบัญชีด้วย `pnpm db:create-user`
 4. `pnpm dev` แล้วดู log ว่า `database connected`
 
 ## Environment variables

@@ -37,22 +37,19 @@ Browser → Cloudflare Worker ─┬─ Static Assets
 
 ## เงื่อนไขก่อน deploy
 
-1. **มี authentication จริง** — ปัจจุบัน content routes เปิดเฉพาะ `APP_ENV=development` และใช้ dev author
-   ถ้า deploy ก่อนมี login หน้าเว็บ production จะบันทึกเนื้อหาไม่ได้ (ตั้งใจไว้เพื่อไม่ให้ข้อมูลรั่ว)
-2. Neon production branch มี migration ล่าสุด (`pnpm db:up` จากเครื่องด้วย direct URL)
-   และสร้างบัญชีจริงของผู้ใช้แทน dev user — **ไม่รัน `seeds/dev_user.sql` บน production**
+1. ~~มี authentication จริง~~ — ทำแล้ว: login + session cookie, content routes ต้อง login
+2. Neon มี migration ล่าสุด (`pnpm db:up` จากเครื่องด้วย direct URL) และบัญชีผู้ใช้จาก `pnpm db:create-user`
 
 ## ขั้นตอนช่วง MVP (Render + Cloudflare)
 
 ### 1. Go API บน Render
 
-- New Web Service จาก GitHub repo, runtime Docker, Dockerfile `apps/api/Dockerfile`
-- Environment:
-  - `APP_ENV=production`
+- ใช้ Blueprint `render.yaml` ที่ root: Docker จาก `apps/api/Dockerfile`, plan free, region Singapore,
+  health check `/api/v1/health`, deploy ใหม่เฉพาะเมื่อ `apps/api/**` เปลี่ยน
+- Render dashboard > New > Blueprint > เลือก repo แล้วกรอก env ที่ `sync: false`:
   - `DATABASE_URL` = Neon **pooled** URL (ห้ามใช้ direct URL สำหรับ runtime)
-  - `GATEWAY_SECRET` = ค่าสุ่มยาว ใช้ร่วมกับ Worker (ดูข้อ 3)
-  - `PORT` ไม่ต้องตั้ง: Render กำหนดให้เอง และ Go อ่าน `PORT` อยู่แล้ว
-- Health check path: `/api/v1/health`
+  - `GATEWAY_SECRET` = ค่าเดียวกับ Worker secret (เก็บไว้ใน `.env.render` ที่ gitignored)
+- `APP_ENV=production` อยู่ใน blueprint; `PORT` Render กำหนดให้เองและ Go อ่านอยู่แล้ว
 - Migration ไม่รันบน Render; รันจากเครื่องด้วย `MIGRATION_DATABASE_URL` เท่านั้น
 
 ### 2. Worker gateway ส่งต่อไป Render (ทำแล้ว)
@@ -63,11 +60,11 @@ Browser → Cloudflare Worker ─┬─ Static Assets
 - Config ของ Containers แยกไว้ที่ `apps/gateway/wrangler.containers.jsonc` (ใช้ตอนจ่าย $5)
 - Render ที่หลับอยู่อาจใช้เวลาตื่น 30–60 วินาที request แรกจะช้าแต่ไม่ถูกตัด
 
-### 3. กันการเรียก Render ตรง
+### 3. กันการเรียก Render ตรง (ทำแล้ว)
 
-- URL ของ Render เป็น public: Worker แนบ header ลับ (เช่น `X-Gateway-Secret`) ทุก request
-- Go ตรวจ header นี้ใน production และตอบ 404 ถ้าไม่ตรง (ยกเว้น health check ของ Render)
-- เก็บค่าเป็น secret ทั้งสองฝั่ง: `wrangler secret put GATEWAY_SECRET` และ Render env
+- URL ของ Render เป็น public: Worker แนบ `X-Gateway-Secret` ทุก request และลบค่าที่ client ส่งมาเอง
+- Go ตรวจ header นี้เมื่อตั้ง `GATEWAY_SECRET` และตอบ 404 ถ้าไม่ตรง (ยกเว้น health check ของ Render)
+- Worker secret ตั้งแล้วด้วย `wrangler secret put GATEWAY_SECRET`
 
 ### 4. Cloudflare
 

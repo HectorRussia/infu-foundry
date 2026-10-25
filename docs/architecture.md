@@ -21,13 +21,12 @@ Gateway ทำ routing และ Container lifecycle เท่านั้น
 
 - App Router + TypeScript strict + Tailwind CSS utilities; global CSS กำหนด theme tokens และ base styles
 - ธีมมืดและ mobile-first: หน้า Login แยกจาก workspace shell โดยไม่มี sidebar; ภายในมี sidebar บน desktop และเมนูพับได้บนมือถือ มีเพียงคลังเนื้อหาและ Editor หัวข้อ/Content ไม่มี dashboard หรือ bottom navigation
-- `/login/` เป็น alias ของหน้าตา Login ที่ `/`; local dev ใช้บัญชีทดสอบกับ sessionStorage และ client redirect ไป `/contents/` ส่วน production ยังไม่มี authentication หรือ route protection
-- Dev login เปิดเฉพาะ NODE_ENV=development และไม่ส่ง credentials ไป Go/Neon; sessionStorage ไม่เก็บรหัสผ่านและไม่ใช่ security boundary ต้องแทนที่ด้วย server-side authentication ในรอบจริง
+- `/login/` เป็น alias ของหน้า Login ที่ `/`; ส่ง email/password ไป Go แล้ว Go ตั้ง session cookie HttpOnly
+- UI อ่านสถานะจาก `GET /api/v1/auth/me` เพื่อแสดงผลเท่านั้น การป้องกันจริงอยู่ที่ Go ทุก content route
 - `src/app`: routes/layout; `components`: shared UI; `features`: auth/content UI; `lib`: API configuration
 - Static export และ trailing slash ทำให้ทุก route มี HTML สำหรับเปิดตรงและ refresh
 - หลัง build มีขั้นตอนเติม filename aliases สำหรับ RSC segment files ที่ Next.js 16 export บน Windows ผิดรูปแบบ เป็น no-op เมื่อ output ถูกต้อง และไม่แก้ไฟล์ใน node_modules; ดู [upstream issue](https://github.com/vercel/next.js/issues/85374)
 - Editor เป็น `/contents/editor/` คงที่ รอบถัดไปใช้ query parameter ระบุ ID ของรายการ ไม่ใช้ dynamic route ที่ต้องรู้ ID ตอน build
-- Local dev มี Login จำลองที่ระบุชัดเจน; production Login และปุ่มบันทึกเนื้อหายังปิดไว้ ไม่มี content persistence
 - Next.js render HTML ล่วงหน้าได้ แต่ข้อมูลส่วนตัวในอนาคตต้องโหลดหลังตรวจ session ผ่าน Go API
 
 ## Backend
@@ -56,8 +55,11 @@ Goose ใช้ session-level advisory lock เพื่อกัน migration �
 เมื่อไม่มี SQL files คำสั่ง migration จะไม่เชื่อมฐานข้อมูล; เมื่อมีแล้ว Goose อาจสร้างตารางเก็บ version แม้เป็นคำสั่ง status
 Schema แรกมี `users` และ `contents` (UUID, soft delete ด้วย `deleted_at`) ผู้ใช้ทุกคนเห็นเนื้อหาร่วมกัน;
 `author_id` บันทึกผู้เขียนเท่านั้น หากต้องแยกตามทีมในอนาคตให้เพิ่ม workspaces + `contents.workspace_id`
-Content routes (`/api/v1/contents`) ลงทะเบียนเฉพาะ development ที่มี database เพราะยังไม่มี authentication;
-ผู้เขียนคือ dev user ที่ seed ไว้ หากไม่มีจะตอบ 503 ไม่สร้าง user เอง
+Authentication: bcrypt (cost 12) + server-side sessions; ตาราง `sessions` เก็บเฉพาะ SHA-256 ของ token
+Cookie `infu_session` Path `/api` HttpOnly SameSite=Lax (Secure นอก development) อายุ 30 วัน ไม่มีการสมัคร
+Login ผิด 10 ครั้งใน 15 นาทีต่ออีเมลถูกบล็อกชั่วคราว (in-memory ต่อ instance)
+คำขอเขียนต้องเป็น JSON เพื่อกัน form ข้ามเว็บ; development อนุญาต CORS พร้อม credentials เฉพาะ localhost:3000
+เมื่อตั้ง `GATEWAY_SECRET` Go รับเฉพาะคำขอที่มี `X-Gateway-Secret` จาก Worker (ยกเว้น health)
 
 Container ใช้ fixed instance name เดียว จำกัดหนึ่ง instance และพักเมื่อไม่ใช้งาน 10 นาที
 Container helper รอ port พร้อม จากนั้นตรวจ health ก่อนส่ง request เดิม

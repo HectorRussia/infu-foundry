@@ -1,5 +1,13 @@
 # Validation — 25 October 2026
 
+## Real login (email/password + sessions)
+
+- `create_sessions` applied on Neon after review; Horn and Ploy accounts created with `pnpm db:create-user` (bcrypt, password via stdin)
+- Go tests: session required for contents, cookie flags (HttpOnly/SameSite=Lax/Path=/api, Secure outside development), per-email login lockout, JSON-only writes, gateway secret, credentialed CORS for localhost:3000
+- Live end-to-end on Neon (temporary API :8099), 13/13 passed: 401 without login, wrong password and unknown email → 401, case-insensitive email login, HttpOnly cookie, `/auth/me`, content authored by the session user, the other account sees it, logout invalidates only that session; e2e content soft-deleted
+- The first e2e run found two bugs fixed before commit: GORM expanded `[]byte` session hashes as a list, and an embedded struct was not scanned
+- Browser login UI not yet exercised against the new API; production waits for Render
+
 ## Cloudflare Workers Free deploy
 
 - Gateway tests 5/5 (incl. external-origin forwarding and gateway-secret stripping); dry-run builds passed for both `wrangler.jsonc` (ASSETS only) and `wrangler.containers.jsonc`
