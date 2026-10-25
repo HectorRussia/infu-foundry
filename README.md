@@ -4,9 +4,10 @@ A creative workspace for organizing ideas and content — from first draft to pu
 
 ## สถานะของรอบนี้
 
-นี่คือ foundation scaffold: หน้าเว็บตัวอย่าง + Fiber health API + GORM connection layer + Goose migrations + Cloudflare gateway configuration
-ยังไม่มี authentication, application schema, การบันทึกเนื้อหา หรือการเรียก AI ภายนอก และยังไม่ได้เชื่อม Neon จริง
-Local dev มีบัญชีทดสอบสำหรับทดลอง flow หน้าจอเท่านั้น ส่วน production ยังเป็นหน้าตัวอย่างสาธารณะ
+Foundation scaffold + คลังเนื้อหาที่บันทึกลง Neon จริงใน local development:
+ตาราง `users` / `contents`, Content API (list/create/get/update/soft delete) และหน้า editor/คลังเนื้อหาที่เรียก API
+ผู้ใช้ทุกคนเห็นเนื้อหาทั้งหมดร่วมกัน (`author_id` บันทึกแค่ผู้เขียน) ยังไม่มี authentication จริงหรือการเรียก AI ภายนอก
+Content API เปิดเฉพาะ `APP_ENV=development` และใช้ dev author `dev@infu.local`; production ยังเป็นหน้าตัวอย่างสาธารณะ
 
 ## เริ่มพัฒนาในเครื่อง
 
@@ -100,7 +101,15 @@ GORM ใช้ simple protocol เพื่อไม่ผูก prepared statem
 ตั้ง `MIGRATION_DATABASE_URL` เป็น **direct URL** สำหรับ migration โดยเฉพาะ; URL สำหรับ runtime
 ใน `DATABASE_URL` สามารถเป็น pooled URL ได้ คำสั่ง migration ไม่ fallback ไปใช้ runtime URL
 รายละเอียดอยู่ใน [Migrations](apps/api/migrations/README.md)
-ขณะนี้ยังไม่มี SQL migrations: status/up/down จะแจ้งว่าไม่มีงานและไม่เชื่อมฐานข้อมูล
+Migration แรกสร้างตาราง `users` และ `contents` ข้อมูลสำหรับ dev เท่านั้นอยู่ใน `apps/api/seeds/`
+และรันด้วยมือครั้งเดียวต่อ database/branch ไม่ใช่ migration
+
+### เชื่อม Neon ในเครื่อง
+
+1. คัดลอก `apps/api/.env.example` เป็น `apps/api/.env` (gitignored)
+2. Neon > Connect: เปิด Connection pooling → `DATABASE_URL`; ปิด → `MIGRATION_DATABASE_URL`
+3. `pnpm db:up` แล้วรัน `apps/api/seeds/dev_user.sql` หนึ่งครั้ง
+4. `pnpm dev` แล้วดู log ว่า `database connected`
 
 ## Environment variables
 
@@ -113,7 +122,7 @@ GORM ใช้ simple protocol เพื่อไม่ผูก prepared statem
 | Go   | `APP_ENV`                  | `development`; Container ตั้งเป็น `production`        |
 
 - Web อ่าน `.env.local` ของ Next.js ได้ ใช้ `.env.example` เป็นตัวอย่าง
-- Go อ่าน environment ของ process เท่านั้น ไม่โหลด `.env` อัตโนมัติ
+- pnpm scripts ของ API (`dev`, `dev:api`, `db:*`) โหลด `apps/api/.env` ให้ ค่าที่ตั้งใน shell มีลำดับก่อน; Go binary เองไม่อ่าน `.env`
 - `pnpm dev` กำหนด Go port 8080 และ development mode ให้ตรงกับ frontend
 - หากต้องปรับ Go port ให้ใช้ `pnpm dev:api` และ `pnpm dev:web` แยก terminal พร้อมปรับ web API URL
 - Production build ต้องปล่อย `NEXT_PUBLIC_API_BASE_URL` ว่าง/ไม่ตั้ง เพื่อเรียก same-origin gateway ห้ามนำ local override ไปใช้ build สำหรับ deploy

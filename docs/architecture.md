@@ -52,7 +52,10 @@ runtime รองรับ Neon pooled URL; Goose ใช้ MIGRATION_DATABASE_U
 Cloudflare Worker ส่ง DATABASE_URL ที่ตั้งเป็น secret เข้า Container environment เท่านั้น ไม่ส่งเข้า frontend หรือ asset bundle
 Goose ใช้ session-level advisory lock เพื่อกัน migration พร้อมกัน และไม่ถูกเรียกจาก API startup
 เมื่อไม่มี SQL files คำสั่ง migration จะไม่เชื่อมฐานข้อมูล; เมื่อมีแล้ว Goose อาจสร้างตารางเก็บ version แม้เป็นคำสั่ง status
-การต่อ Neon จริงและเพิ่ม schema จะทำในรอบฟีเจอร์ต่อไป
+Schema แรกมี `users` และ `contents` (UUID, soft delete ด้วย `deleted_at`) ผู้ใช้ทุกคนเห็นเนื้อหาร่วมกัน;
+`author_id` บันทึกผู้เขียนเท่านั้น หากต้องแยกตามทีมในอนาคตให้เพิ่ม workspaces + `contents.workspace_id`
+Content routes (`/api/v1/contents`) ลงทะเบียนเฉพาะ development ที่มี database เพราะยังไม่มี authentication;
+ผู้เขียนคือ dev user ที่ seed ไว้ หากไม่มีจะตอบ 503 ไม่สร้าง user เอง
 
 Container ใช้ fixed instance name เดียว จำกัดหนึ่ง instance และพักเมื่อไม่ใช้งาน 10 นาที
 Container helper รอ port พร้อม จากนั้นตรวจ health ก่อนส่ง request เดิม

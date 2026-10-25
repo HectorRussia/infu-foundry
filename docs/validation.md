@@ -42,6 +42,17 @@
 - Screenshots in `output/playwright/dark-*.png`; viewport checks are desktop Chrome simulations, not physical-device or mobile-keyboard verification
 - This UI change does not verify real Containers, Neon, authentication or persistence
 
+## Neon + content library
+
+- Neon project (AWS Singapore) connected locally: API startup logged `database connected` via the pooled URL
+- `pnpm db:up` applied `create_users_and_contents` through the direct URL; column check matched the reviewed schema
+- `apps/api/seeds/dev_user.sql` inserted one dev author after review
+- `pnpm check` (Go) passed, including fake-store content route tests and a check that production does not expose content routes
+- Web lint, typecheck and `next build` static export passed
+- Live end-to-end on Neon (temporary API port 8099): CORS preflight, create, get, update, list ordering, empty-input 422, soft delete, 404 after delete — all passed; the e2e row remains soft-deleted
+- Editor save from the browser confirmed by the user after restarting the API
+- Production authentication and Containers with Neon remain unverified
+
 ## Backend stack update — Fiber / GORM / Goose
 
 - Project toolchain: Go 1.26.10 (selected automatically; global Go installation unchanged)
