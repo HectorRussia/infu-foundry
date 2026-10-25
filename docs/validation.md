@@ -1,5 +1,14 @@
 # Validation — 25 October 2026
 
+## Local dev login (latest)
+
+- Development-only account enables UI login without Go/Neon calls. Production still has disabled login and public preview workspace routes
+- Browser verified invalid password rejection, valid login to library, session surviving refresh, logout, and direct editor access redirecting to login after logout
+- Session marker only in sessionStorage; password is not persisted. This is not a security boundary
+- Web check and static build passed; production output scanned and contains neither dev email nor dev password
+- Local Workers production preview at port 8787 confirmed disabled login and no development-account hint
+- Browser error log empty after the flow
+
 ## Login and workspace separation (latest UI)
 
 - User confirmed UI-only scope; authentication remains deferred

@@ -19,12 +19,13 @@ Gateway ทำ routing และ Container lifecycle เท่านั้น
 
 - App Router + TypeScript strict + Tailwind CSS utilities; global CSS กำหนด theme tokens และ base styles
 - ธีมมืดและ mobile-first: หน้า Login แยกจาก workspace shell โดยไม่มี sidebar; ภายในมี sidebar บน desktop และเมนูพับได้บนมือถือ มีเพียงคลังเนื้อหาและ Editor หัวข้อ/Content ไม่มี dashboard หรือ bottom navigation
-- `/login/` เป็น alias ของหน้าตา Login ที่ `/`; เมื่อทำ authentication จริงจะส่งไป `/contents/` หลัง Login สำเร็จ ตอนนี้ยังไม่มี session หรือ route protection
+- `/login/` เป็น alias ของหน้าตา Login ที่ `/`; local dev ใช้บัญชีทดสอบกับ sessionStorage และ client redirect ไป `/contents/` ส่วน production ยังไม่มี authentication หรือ route protection
+- Dev login เปิดเฉพาะ NODE_ENV=development และไม่ส่ง credentials ไป Go/Neon; sessionStorage ไม่เก็บรหัสผ่านและไม่ใช่ security boundary ต้องแทนที่ด้วย server-side authentication ในรอบจริง
 - `src/app`: routes/layout; `components`: shared UI; `features`: auth/content UI; `lib`: API configuration
 - Static export และ trailing slash ทำให้ทุก route มี HTML สำหรับเปิดตรงและ refresh
 - หลัง build มีขั้นตอนเติม filename aliases สำหรับ RSC segment files ที่ Next.js 16 export บน Windows ผิดรูปแบบ เป็น no-op เมื่อ output ถูกต้อง และไม่แก้ไฟล์ใน node_modules; ดู [upstream issue](https://github.com/vercel/next.js/issues/85374)
 - Editor เป็น `/contents/editor/` คงที่ รอบถัดไปใช้ query parameter ระบุ ID ของรายการ ไม่ใช้ dynamic route ที่ต้องรู้ ID ตอน build
-- ไม่มีสถานะ Login จำลองและไม่มี persistence ปุ่มที่ยังไม่รองรับปิดไว้
+- Local dev มี Login จำลองที่ระบุชัดเจน; production Login และปุ่มบันทึกเนื้อหายังปิดไว้ ไม่มี content persistence
 - Next.js render HTML ล่วงหน้าได้ แต่ข้อมูลส่วนตัวในอนาคตต้องโหลดหลังตรวจ session ผ่าน Go API
 
 ## Backend

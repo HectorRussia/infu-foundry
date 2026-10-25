@@ -6,7 +6,7 @@ A creative workspace for organizing ideas and content — from first draft to pu
 
 นี่คือ foundation scaffold: หน้าเว็บตัวอย่าง + Fiber health API + GORM connection layer + Goose migrations + Cloudflare gateway configuration
 ยังไม่มี authentication, application schema, การบันทึกเนื้อหา หรือการเรียก AI ภายนอก และยังไม่ได้เชื่อม Neon จริง
-ทุกหน้าตัวอย่างเปิดได้โดยไม่ต้อง Login จึงไม่ควรนำข้อมูลจริงหรือข้อมูลลับมาทดลอง
+Local dev มีบัญชีทดสอบสำหรับทดลอง flow หน้าจอเท่านั้น ส่วน production ยังเป็นหน้าตัวอย่างสาธารณะ
 
 ## เริ่มพัฒนาในเครื่อง
 
@@ -42,7 +42,7 @@ Web build มีขั้นตอนแก้ชื่อไฟล์ RSC ท�
 ## หน้าตัวอย่าง
 
 - `/` หน้าแรกเป็นการ์ด Login เดี่ยว ไม่มี sidebar หรือหน้าภาพรวม
-- `/login/` ฟอร์มตัวอย่าง ปุ่มเข้าสู่ระบบปิดไว้ ไม่มีการส่ง credentials
+- `/login/` บัญชีทดสอบใช้ได้เฉพาะ local dev; production ปุ่มเข้าสู่ระบบปิดไว้ ไม่มีการส่ง credentials
 - `/contents/` คลังเนื้อหาว่าง ไม่มีข้อมูลสมมติที่แสดงว่าเก็บแล้ว
 - `/contents/editor/` มีเฉพาะหัวข้อและ Content พิมพ์และคัดลอก Content ได้ ปุ่มบันทึกปิดไว้
 
@@ -50,7 +50,17 @@ UI ใช้ Tailwind CSS ธีมมืด ออกแบบสำหรั�
 และปุ่มคัดลอก/บันทึกที่เข้าถึงได้จากด้านล่างหน้าจอ ภายในมีเพียงคลังเนื้อหาและพื้นที่เขียน
 หน้า Login ไม่มี sidebar; ภายในมี sidebar บน desktop และเมนูพับได้บนมือถือ ไม่มี dashboard หรือ bottom navigation
 `/login/` ยังเปิดหน้า Login เดียวกับหน้าแรกได้
-เมื่อทำ authentication จริงสำเร็จจะพาไป `/contents/`; ตอนนี้ยังไม่มี session หรือ route protection
+เมื่อทำ authentication จริงจะใช้ Go ตรวจ session; ตอนนี้มีเฉพาะ dev session ฝั่ง browser สำหรับทดลอง UI
+
+### บัญชี Local dev
+
+รัน `pnpm dev` แล้วใช้ **dev@infu.local** / **infu-dev-123** ที่หน้า Login
+เมื่อสำเร็จจะไป `/contents/`; ใช้ปุ่มออกจากระบบใน sidebar หรือเมนูมือถือเพื่อกลับหน้า Login
+Session ทดสอบอยู่ใน `sessionStorage` ของแท็บ รีเฟรชยังอยู่ แต่ไม่เก็บรหัสผ่าน
+เปิด workspace โดยไม่มี dev session จะถูกพากลับ `/login/`
+
+เปิดใช้เฉพาะ `NODE_ENV=development` โดยไม่มี production override; production build ตัด credentials ออก
+นี่เป็น UI simulation ที่แก้ไขข้ามได้จาก browser ไม่ใช่ authentication หรือการป้องกัน API และไม่เรียก Go/Neon
 
 ข้อความใน editor อยู่ใน React state เท่านั้น ออกจากหน้าหรือ refresh แล้วหาย
 ไม่มี localStorage, cookies หรือฐานข้อมูลสำหรับเก็บข้อความในรอบนี้
