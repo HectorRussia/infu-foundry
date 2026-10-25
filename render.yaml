@@ -1,0 +1,24 @@
+# Render Blueprint: Go API on the free plan, reached only through the Cloudflare
+# Worker (X-Gateway-Secret). See docs/deployment.md.
+services:
+  - type: web
+    name: infu-foundry-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - apps/api/**
+    envVars:
+      - key: APP_ENV
+        value: production
+      # Neon pooled URL (host contains -pooler). Entered in the Render dashboard.
+      - key: DATABASE_URL
+        sync: false
+      # Same value as the Worker secret GATEWAY_SECRET.
+      - key: GATEWAY_SECRET
+        sync: false
