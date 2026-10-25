@@ -1,5 +1,5 @@
 import { Flame } from 'lucide-react';
-import { LoginPreview } from './login-preview';
+import { LoginForm } from './login-form';
 
 export function LoginScreen() {
   return (
@@ -13,13 +13,8 @@ export function LoginScreen() {
         <p className="mt-3 text-sm text-muted">พื้นที่ทำงานของทีม Infu Foundry</p>
       </div>
       <div className="rounded-2xl border border-edge bg-surface p-7">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="font-medium">เข้าสู่ระบบ</h2>
-          <span className="rounded-full border border-edge px-2.5 py-1 text-[10px] text-muted">
-            หน้าตัวอย่าง
-          </span>
-        </div>
-        <LoginPreview />
+        <h2 className="font-medium">เข้าสู่ระบบ</h2>
+        <LoginForm />
       </div>
       <p className="mt-5 text-center text-xs leading-6 text-muted">
         สำหรับบัญชีที่ทีมสร้างให้ล่วงหน้า

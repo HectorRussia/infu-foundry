@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { BookOpen, Flame, LogIn, LogOut, Menu, PenLine } from 'lucide-react';
-import { DEV_LOGIN, hasDevSession, logoutDev, useDevSession } from '@/features/auth/dev-auth';
+import { BookOpen, Flame, LogOut, Menu, PenLine } from 'lucide-react';
+import { retrySession, setSignedOut, useSession } from '@/features/auth/session';
+import { logout } from '@/lib/api';
 
 const navigation = [
   { href: '/contents/', label: 'คลังเนื้อหา', icon: BookOpen },
@@ -13,30 +14,29 @@ const navigation = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const session = useDevSession();
+  const session = useSession();
   const pathname = usePathname().replace(/\/$/, '') || '/';
   const workspace = pathname === '/contents' || pathname === '/contents/editor';
   const editor = pathname === '/contents/editor';
   useEffect(() => {
-    if (DEV_LOGIN && workspace && !session && !hasDevSession()) router.replace('/login/');
-  }, [router, workspace, session]);
-  const exitWorkspace = DEV_LOGIN ? (
+    if (workspace && session.status === 'signed-out') router.replace('/login/');
+  }, [router, workspace, session.status]);
+  const exitWorkspace = (
     <button
       type="button"
-      onClick={() => {
-        logoutDev();
-        router.replace('/login/');
+      onClick={async () => {
+        try {
+          await logout();
+        } finally {
+          setSignedOut();
+          router.replace('/login/');
+        }
       }}
       className="flex min-h-12 w-full items-center gap-3 rounded-xl bg-elevated px-4 text-sm"
     >
       <LogOut size={18} />
       ออกจากระบบ
     </button>
-  ) : (
-    <Link href="/" className="flex min-h-12 items-center gap-3 rounded-xl bg-elevated px-4 text-sm">
-      <LogIn size={18} />
-      หน้าเข้าสู่ระบบ
-    </Link>
   );
   const active = (href: string) => pathname === href.replace(/\/$/, '');
   const links = navigation.map(({ href, label, icon: Icon }) => (
@@ -55,13 +55,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <main className="grid min-h-dvh place-items-center px-4 py-4 sm:py-10">{children}</main>;
   }
 
-  if (DEV_LOGIN && !session) {
+  if (session.status === 'error') {
     return (
-      <main className="grid min-h-dvh place-items-center text-sm text-muted">
-        กำลังเปิดหน้าเข้าสู่ระบบ…
+      <main className="grid min-h-dvh place-items-center px-4 text-center text-sm text-muted">
+        <div>
+          <p>เชื่อมต่อระบบไม่ได้</p>
+          <button
+            type="button"
+            onClick={retrySession}
+            className="mt-4 min-h-12 rounded-xl bg-elevated px-5 text-ink"
+          >
+            ลองอีกครั้ง
+          </button>
+        </div>
       </main>
     );
   }
+
+  if (session.status !== 'signed-in') {
+    return (
+      <main className="grid min-h-dvh place-items-center text-sm text-muted">
+        กำลังตรวจสอบการเข้าสู่ระบบ…
+      </main>
+    );
+  }
+  const { user } = session;
 
   return (
     <div className="min-h-dvh">
@@ -76,11 +94,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
         <div className="mt-10 flex items-center gap-3 rounded-xl border border-edge bg-surface p-4">
           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-elevated text-xs text-brand">
-            IF
+            {user.displayName.slice(0, 2).toUpperCase()}
           </span>
-          <div>
-            <p className="text-sm font-semibold">พื้นที่ทำงานของทีม</p>
-            <p className="mt-1 text-xs text-muted">Infu Foundry</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{user.displayName}</p>
+            <p className="mt-1 truncate text-xs text-muted">{user.email}</p>
           </div>
         </div>
         <p className="mb-4 mt-8 px-4 text-[10px] tracking-[.2em] text-muted">WORKSPACE</p>
@@ -110,8 +128,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
               <span className="text-ink">{editor ? 'เขียนเนื้อหา' : 'คลังเนื้อหา'}</span>
             </span>
-            <span className="rounded-full border border-edge bg-surface px-2.5 py-1 text-[10px] text-muted">
-              {DEV_LOGIN ? 'LOCAL DEV' : 'PREVIEW'}
+            <span className="truncate rounded-full border border-edge bg-surface px-2.5 py-1 text-[10px] text-muted">
+              {process.env.NODE_ENV === 'development' ? 'LOCAL DEV' : user.displayName}
             </span>
           </div>
           <details key={pathname} className="border-t border-edge px-4 lg:hidden">
