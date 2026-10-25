@@ -1,7 +1,7 @@
 # PostgreSQL migrations
 
 SQL migrations are managed by Goose, separately from starting the API.
-Development-only data (the dev author) lives in `apps/api/seeds/`, never in migrations.
+Accounts are created with `pnpm db:create-user`, never in migrations.
 
 From the repository root:
 
