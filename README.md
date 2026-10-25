@@ -64,10 +64,7 @@ pnpm db:create-user -email someone@example.com -name Someone
 pnpm db:create-user -email someone@example.com -reset
 ```
 
-นี่เป็น UI simulation ที่แก้ไขข้ามได้จาก browser ไม่ใช่ authentication หรือการป้องกัน API และไม่เรียก Go/Neon
-
-ข้อความใน editor อยู่ใน React state เท่านั้น ออกจากหน้าหรือ refresh แล้วหาย
-ไม่มี localStorage, cookies หรือฐานข้อมูลสำหรับเก็บข้อความในรอบนี้
+Editor บันทึกลง Neon ผ่าน Go API เมื่อกดบันทึก ข้อความที่ยังไม่บันทึกอยู่ในหน้านั้นจนกว่าจะออกหรือ refresh
 การคัดลอกต้องใช้ browser ที่รองรับ Clipboard API บน localhost หรือ HTTPS
 
 ## โครงสร้าง
@@ -79,6 +76,8 @@ apps/gateway/     Cloudflare Worker, Container lifecycle และ static asset 
 contracts/       OpenAPI ของ endpoint ที่ทำจริงแล้ว
 docs/            ข้อตกลงสถาปัตยกรรมและผลตรวจรับ
 scripts/         Node.js scripts สำหรับ Windows/macOS/Linux
+render.yaml      Render Blueprint ของ Go API
+CLAUDE.md        กติกาการทำงานสำหรับ AI agents (AGENTS.md ชี้มาที่ไฟล์นี้)
 ```
 
 อ่านรายละเอียดและข้อตกลงรอบถัดไปใน [Architecture](docs/architecture.md)
