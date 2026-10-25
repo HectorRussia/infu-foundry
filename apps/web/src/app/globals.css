@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-canvas: #101114;
+  --color-surface: #181a1f;
+  --color-elevated: #202229;
+  --color-edge: #30323c;
+  --color-ink: #f2f2f5;
+  --color-muted: #a6a8b5;
+  --color-brand: #ff946e;
+  --font-sans: 'Noto Sans Thai Variable', Arial, sans-serif;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  body {
+    @apply m-0 bg-canvas font-sans text-ink antialiased;
+  }
+  button,
+  input,
+  textarea {
+    font: inherit;
+  }
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  button:not(:disabled),
+  a {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  :where(a, button, input, textarea):focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 4px;
+  }
+  ::selection {
+    background: #ff946e40;
+    color: #fff;
+  }
+}
