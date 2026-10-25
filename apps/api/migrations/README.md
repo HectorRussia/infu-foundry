@@ -1,7 +1,7 @@
 # PostgreSQL migrations
 
 SQL migrations are managed by Goose, separately from starting the API.
-No application tables or placeholder migrations are created in this scaffold.
+Development-only data (the dev author) lives in `apps/api/seeds/`, never in migrations.
 
 From the repository root:
 
