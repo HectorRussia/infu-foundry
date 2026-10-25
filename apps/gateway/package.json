@@ -1,0 +1,19 @@
+{
+  "name": "@infu-foundry/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit && node --test test/*.test.mjs",
+    "build": "wrangler deploy --dry-run --containers-rollout=none --outdir dist",
+    "preview": "wrangler dev --local --port 8787"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "0.3.7"
+  },
+  "devDependencies": {
+    "wrangler": "4.152.0",
+    "@cloudflare/workers-types": "5.20261025.1",
+    "typescript": "^5.9.0"
+  }
+}

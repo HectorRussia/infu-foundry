@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+dist
+bin
+.wrangler
+pnpm-lock.yaml
+output
+.playwright-cli
+apps/web/next-env.d.ts

@@ -1,0 +1,7 @@
+packages:
+  - apps/web
+  - apps/gateway
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - workerd
