@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { BookOpen, Flame, LogIn, Menu, PenLine } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { BookOpen, Flame, LogIn, LogOut, Menu, PenLine } from 'lucide-react';
+import { DEV_LOGIN, hasDevSession, logoutDev, useDevSession } from '@/features/auth/dev-auth';
 
 const navigation = [
   { href: '/contents/', label: 'คลังเนื้อหา', icon: BookOpen },
@@ -10,9 +12,32 @@ const navigation = [
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const session = useDevSession();
   const pathname = usePathname().replace(/\/$/, '') || '/';
   const workspace = pathname === '/contents' || pathname === '/contents/editor';
   const editor = pathname === '/contents/editor';
+  useEffect(() => {
+    if (DEV_LOGIN && workspace && !session && !hasDevSession()) router.replace('/login/');
+  }, [router, workspace, session]);
+  const exitWorkspace = DEV_LOGIN ? (
+    <button
+      type="button"
+      onClick={() => {
+        logoutDev();
+        router.replace('/login/');
+      }}
+      className="flex min-h-12 w-full items-center gap-3 rounded-xl bg-elevated px-4 text-sm"
+    >
+      <LogOut size={18} />
+      ออกจากระบบ
+    </button>
+  ) : (
+    <Link href="/" className="flex min-h-12 items-center gap-3 rounded-xl bg-elevated px-4 text-sm">
+      <LogIn size={18} />
+      หน้าเข้าสู่ระบบ
+    </Link>
+  );
   const active = (href: string) => pathname === href.replace(/\/$/, '');
   const links = navigation.map(({ href, label, icon: Icon }) => (
     <Link
@@ -28,6 +53,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!workspace) {
     return <main className="grid min-h-dvh place-items-center px-4 py-4 sm:py-10">{children}</main>;
+  }
+
+  if (DEV_LOGIN && !session) {
+    return (
+      <main className="grid min-h-dvh place-items-center text-sm text-muted">
+        กำลังเปิดหน้าเข้าสู่ระบบ…
+      </main>
+    );
   }
 
   return (
@@ -61,13 +94,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <br />
             แล้วกลับมาต่อยอดด้วยกัน
           </div>
-          <Link
-            href="/"
-            className="flex min-h-12 items-center gap-3 rounded-xl bg-elevated px-4 text-sm"
-          >
-            <LogIn size={18} />
-            หน้าเข้าสู่ระบบ
-          </Link>
+          {exitWorkspace}
           <p className="mt-5 flex justify-between border-t border-edge pt-5 text-[10px] text-muted">
             <span>INFU FOUNDRY</span>
             <span>V0.1</span>
@@ -84,7 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="text-ink">{editor ? 'เขียนเนื้อหา' : 'คลังเนื้อหา'}</span>
             </span>
             <span className="rounded-full border border-edge bg-surface px-2.5 py-1 text-[10px] text-muted">
-              PREVIEW
+              {DEV_LOGIN ? 'LOCAL DEV' : 'PREVIEW'}
             </span>
           </div>
           <details key={pathname} className="border-t border-edge px-4 lg:hidden">
@@ -94,13 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </summary>
             <nav aria-label="เมนูมือถือ" className="space-y-2 pb-3">
               {links}
-              <Link
-                href="/"
-                className="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm text-muted"
-              >
-                <LogIn size={19} />
-                หน้าเข้าสู่ระบบ
-              </Link>
+              {exitWorkspace}
             </nav>
           </details>
         </header>

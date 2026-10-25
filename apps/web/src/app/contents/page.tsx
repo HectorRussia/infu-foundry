@@ -17,7 +17,7 @@ export default function ContentsPage() {
         </Link>
       </div>
       <p className="mt-4 text-xs leading-6 text-muted">
-        หน้าตัวอย่าง · ยังไม่มีระบบเข้าสู่ระบบหรือบันทึกข้อมูล
+        หน้าตัวอย่าง · ยังไม่มีระบบบัญชีจริงหรือบันทึกข้อมูล
       </p>
       <section className="mt-5 rounded-2xl border border-edge bg-surface px-6 py-16 text-center">
         <h2 className="font-medium">ยังไม่มีเนื้อหา</h2>
