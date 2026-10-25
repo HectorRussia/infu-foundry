@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
+import { ContentList } from '@/features/contents/content-list';
 
 export const metadata: Metadata = { title: 'คลังเนื้อหา' };
 export default function ContentsPage() {
@@ -16,13 +17,7 @@ export default function ContentsPage() {
           เขียนเนื้อหา
         </Link>
       </div>
-      <p className="mt-4 text-xs leading-6 text-muted">
-        หน้าตัวอย่าง · ยังไม่มีระบบบัญชีจริงหรือบันทึกข้อมูล
-      </p>
-      <section className="mt-5 rounded-2xl border border-edge bg-surface px-6 py-16 text-center">
-        <h2 className="font-medium">ยังไม่มีเนื้อหา</h2>
-        <p className="mt-2 text-sm leading-6 text-muted">กด “เขียนเนื้อหา” เพื่อเปิดพื้นที่เขียน</p>
-      </section>
+      <ContentList />
     </>
   );
 }
