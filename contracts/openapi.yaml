@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Infu Foundry API
-  version: 0.5.0
+  version: 0.6.0
   description: |
     Shared content library for signed-in users, with videos stored in Cloudflare R2.
     Every route except /health and /auth/login needs the `infu_session` cookie.
@@ -143,6 +143,66 @@ paths:
         '204': { description: Deleted }
         '404': { description: Missing or already deleted }
 
+  /contents/{id}/cover:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      operationId: requestCoverUpload
+      summary: Get a presigned R2 URL for a new cover image (PUT within 15 minutes)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contentType, size]
+              properties:
+                contentType: { type: string, enum: [image/jpeg, image/png, image/webp] }
+                size: { type: integer, minimum: 1, maximum: 10485760 }
+      responses:
+        '201':
+          description: Upload URL issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, uploadUrl]
+                properties:
+                  key: { type: string, description: Pass back to PUT once uploaded }
+                  uploadUrl: { type: string, format: uri }
+        '404': { description: Content missing or deleted }
+        '422': { description: Unsupported type or over 10 MB }
+    put:
+      operationId: setCover
+      summary: Make an uploaded image the cover; the previous cover image is deleted
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key]
+              properties:
+                key: { type: string }
+      responses:
+        '200':
+          description: Cover set
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [coverUrl]
+                properties:
+                  coverUrl: { type: string, format: uri }
+        '409': { description: Image not uploaded yet }
+        '422': { description: Key not issued for this content, or the object is not a valid image }
+    delete:
+      operationId: removeCover
+      summary: Remove the cover and delete its image
+      responses:
+        '204': { description: Removed }
+        '404': { description: Content missing or deleted }
+
   /contents/{id}/media:
     parameters:
       - $ref: '#/components/parameters/Id'
@@ -277,6 +337,12 @@ components:
         id: { type: string, format: uuid }
         authorName: { type: string }
         videoCount: { type: integer, description: Ready, non-deleted videos }
+        coverUrl:
+          {
+            type: string,
+            format: uri,
+            description: Presigned cover image URL (~1 hour); absent without a cover,
+          }
         title: { type: string }
         excerpt: { type: string, description: First 160 characters of the body }
         updatedAt: { type: string, format: date-time }
@@ -291,6 +357,12 @@ components:
         body: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+        coverUrl:
+          {
+            type: string,
+            format: uri,
+            description: Presigned cover image URL (~1 hour); absent without a cover,
+          }
     Media:
       type: object
       required: [id, contentId, uploaderId, filename, contentType, sizeBytes, status, createdAt]
