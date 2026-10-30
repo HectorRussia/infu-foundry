@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Infu Foundry API
-  version: 0.6.0
+  version: 0.7.0
   description: |
     Shared content library for signed-in users, with videos stored in Cloudflare R2.
     Every route except /health and /auth/login needs the `infu_session` cookie.
@@ -186,16 +186,33 @@ paths:
                 key: { type: string }
       responses:
         '200':
-          description: Cover set
+          description: Cover set; the crop starts centred (50, 50)
           content:
             application/json:
-              schema:
-                type: object
-                required: [coverUrl]
-                properties:
-                  coverUrl: { type: string, format: uri }
+              schema: { $ref: '#/components/schemas/Cover' }
         '409': { description: Image not uploaded yet }
         '422': { description: Key not issued for this content, or the object is not a valid image }
+    patch:
+      operationId: setCoverPosition
+      summary: Choose which part of the cover stays visible when cards crop it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [x, y]
+              properties:
+                x: { type: integer, minimum: 0, maximum: 100, description: CSS object-position % (0 left, 100 right) }
+                y: { type: integer, minimum: 0, maximum: 100, description: CSS object-position % (0 top, 100 bottom) }
+      responses:
+        '200':
+          description: Position saved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cover' }
+        '404': { description: Content missing or deleted }
+        '422': { description: Missing or out-of-range x/y }
     delete:
       operationId: removeCover
       summary: Remove the cover and delete its image
@@ -332,7 +349,7 @@ components:
         displayName: { type: string }
     ContentSummary:
       type: object
-      required: [id, authorName, videoCount, title, excerpt, updatedAt]
+      required: [id, authorName, videoCount, coverPositionX, coverPositionY, title, excerpt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         authorName: { type: string }
@@ -343,12 +360,14 @@ components:
             format: uri,
             description: Presigned cover image URL (~1 hour); absent without a cover,
           }
+        coverPositionX: { type: integer, minimum: 0, maximum: 100, description: CSS object-position x % (default 50) }
+        coverPositionY: { type: integer, minimum: 0, maximum: 100, description: CSS object-position y % (default 50) }
         title: { type: string }
         excerpt: { type: string, description: First 160 characters of the body }
         updatedAt: { type: string, format: date-time }
     Content:
       type: object
-      required: [id, authorId, authorName, title, body, createdAt, updatedAt]
+      required: [id, authorId, authorName, title, body, createdAt, updatedAt, coverPositionX, coverPositionY]
       properties:
         id: { type: string, format: uuid }
         authorId: { type: string, format: uuid }
@@ -363,6 +382,23 @@ components:
             format: uri,
             description: Presigned cover image URL (~1 hour); absent without a cover,
           }
+        coverDownloadUrl:
+          {
+            type: string,
+            format: uri,
+            description: Same as coverUrl but saved as a file named after the title; absent without a cover,
+          }
+        coverPositionX: { type: integer, minimum: 0, maximum: 100, description: CSS object-position x % (default 50) }
+        coverPositionY: { type: integer, minimum: 0, maximum: 100, description: CSS object-position y % (default 50) }
+    Cover:
+      type: object
+      required: [coverUrl, coverDownloadUrl, coverPositionX, coverPositionY]
+      properties:
+        coverUrl: { type: string, format: uri }
+        coverDownloadUrl:
+          { type: string, format: uri, description: R2 replies with Content-Disposition attachment }
+        coverPositionX: { type: integer, minimum: 0, maximum: 100, description: CSS object-position x % (default 50) }
+        coverPositionY: { type: integer, minimum: 0, maximum: 100, description: CSS object-position y % (default 50) }
     Media:
       type: object
       required: [id, contentId, uploaderId, filename, contentType, sizeBytes, status, createdAt]
