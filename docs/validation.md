@@ -1,5 +1,13 @@
 # Validation — 25 October 2026
 
+## Video download on phones (Safari and Chrome)
+
+- Cause: the phone players have no download item (iOS Safari never does; Chrome only on desktop), and `<a download>` is ignored for cross-origin R2 links
+- Fix: API returns `downloadUrl`, a presigned R2 GET with `response-content-disposition: attachment`; download buttons in the editor video list and the gallery
+- Go tests: download URL carries the filename; `AttachmentDisposition` handles ASCII, Thai (UTF-8 `filename*`) and quotes/backslashes
+- Live check against `infu-media-prod` (temporary API :8099, existing videos, read-only): download URL → 206 with `attachment; filename=...`; play URL stays inline
+- Not verified on a physical iPhone/Android yet; iOS saves to Files (Downloads) — use Share → Save Video to put it in Photos
+
 ## Fix: videos uploaded locally did not play on production
 
 - Production gallery listed `catknight_ep2.mp4` and `prod_2.mp4`, but both view URLs returned 404 `NoSuchKey` from `infu-media-prod`: they were uploaded from local into `infu-media-dev` while both environments share one Neon database

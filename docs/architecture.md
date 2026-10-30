@@ -69,6 +69,8 @@ Login ผิด 10 ครั้งใน 15 นาทีต่ออีเมล
 Browser อัปโหลดตรงเข้า R2 ด้วย presigned PUT (15 นาที, ลงนาม Content-Type และ Content-Length) แล้วเรียก
 `/media/{id}/complete` ให้ Go HEAD ตรวจขนาดก่อนตั้ง `ready`; ดูด้วย presigned GET อายุ 1 ชั่วโมง (รองรับ Range)
 ไฟล์ไม่ผ่าน Go/Render; ลบวิดีโอ = ลบ object ก่อนแล้ว soft delete แถว; ลบเนื้อหาไม่ลบวิดีโอ
+ดาวน์โหลด: presigned GET แยกที่ใส่ `response-content-disposition: attachment` (ชื่อไฟล์เดิม แบบ RFC 6266)
+เพราะ iOS Safari / Android Chrome ไม่สนใจ `<a download>` ข้าม origin; header จาก R2 คือสิ่งที่ทำให้มือถือบันทึกไฟล์
 S3 SDK ตั้ง checksum เป็น "when required" เพราะ browser ส่ง CRC header ของ SDK ใหม่ไม่ได้
 ใช้ bucket `infu-media-prod` ทั้ง local และ production เพราะทั้งสองใช้ Neon ก้อนเดียว (token `infu-prod`, Object Read & Write เฉพาะ bucket)
 CORS ของ bucket อนุญาต production และ `http://localhost:3000`; `infu-media-dev` เลิกใช้แล้ว (เก็บไว้จนกว่าจะแยก DB สำหรับ dev)

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Infu Foundry API
-  version: 0.4.0
+  version: 0.5.0
   description: |
     Shared content library for signed-in users, with videos stored in Cloudflare R2.
     Every route except /health and /auth/login needs the `infu_session` cookie.
@@ -315,6 +315,10 @@ components:
       allOf:
         - $ref: '#/components/schemas/Media'
         - type: object
-          required: [url]
+          required: [url, downloadUrl]
           properties:
             url: { type: string, format: uri, description: Presigned R2 GET, valid about 1 hour }
+            downloadUrl:
+              type: string
+              format: uri
+              description: Same as url but R2 replies with Content-Disposition attachment (original filename, RFC 6266) so phones save the file
