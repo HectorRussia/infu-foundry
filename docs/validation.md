@@ -1,5 +1,15 @@
 # Validation — 25 October 2026
 
+## Cover crop position and cover download
+
+- Migration `add_content_cover_position`: `cover_position_x/y` smallint, default 50, CHECK 0–100. Applied on Neon after review (2026-10-31); existing covers stay centred
+- API: PATCH `/contents/{id}/cover` `{x, y}` saves the crop (422 out of range or missing, 404 unknown content); setting a new image recentres it; content GET/PUT and the cover endpoints return `coverDownloadUrl` (attachment named after the title, unsafe characters → `-`, fallback `cover`)
+- Web: editor "จัดตำแหน่ง" mode drags the image with mouse or finger (`touch-action: none` so phones do not scroll), arrow keys/Enter/Esc, "กึ่งกลาง" reset; library cards use the saved `object-position`; download button next to the cover
+- Go tests: PATCH validation and save, list carries the position, new image resets to 50/50, download URL carries the title filename; `CoverFilename` handles Thai, unsafe characters and blank titles
+- `pnpm check` and the web static build pass
+- Live end-to-end (temporary API :8099, Neon + `infu-media-prod`, generated PNGs), 12/12 passed: library loads with positions (6 items), new content centred, PATCH saves 50/20, out of range → 422, library card carries the position without a download URL, download URL → 200 `attachment` with the UTF-8 title filename, view URL stays inline, a new image recentres, remove cover, test content soft-deleted
+- Not yet: dragging in a real browser and on a phone, production deploy
+
 ## Cover images; library shows covers instead of videos
 
 - Go tests: unsupported type / >10 MB → 422, unknown content 404, PUT before upload 409, a video key or another content's key → 422, replacing deletes the old image, removing clears key and object, list/GET carry `coverUrl` but never the key, routes absent without R2; key helpers reject traversal and foreign ids

@@ -25,7 +25,8 @@ Gateway ทำ routing และ Container lifecycle เท่านั้น
 - `/videos/` (เมนู "รายการทั้งหมด") แสดงวิดีโอ ready ของเนื้อหาที่ยังไม่ถูกลบ ใหม่สุดก่อน (สูงสุด 200) ผ่าน `GET /api/v1/media`; 1/2/3 คอลัมน์ตามความกว้างจอ
 - เมนูเรียง: รายการทั้งหมด → คลังเนื้อหา → เขียนเนื้อหา; หน้า workspace กว้าง `max-w-6xl` บน desktop
 - คลังเนื้อหาเป็น card grid แบบเดียวกับแกลเลอรี: ปกเป็น**ภาพปก**ที่ผู้ใช้อัป (`coverUrl`) หรือปกข้อความถ้าไม่มี; ไม่แสดงวิดีโอในคลัง (ดูในหน้าเนื้อหา) ทั้งการ์ดเป็นลิงก์ไป editor
-- Editor มีกล่องภาพปกเหนือส่วนวิดีโอ (คอลัมน์ขวาบน desktop, ใต้เนื้อหาบนมือถือ)
+- Editor มีกล่องภาพปกเหนือส่วนวิดีโอ (คอลัมน์ขวาบน desktop, ใต้เนื้อหาบนมือถือ) พร้อมปุ่ม "จัดตำแหน่ง" (ลากด้วยเมาส์/นิ้ว
+  หรือปุ่มลูกศร; กรอบ 16:9 เท่ากับการ์ดในคลัง จึงเห็นผลตรงกัน), ปุ่มดาวน์โหลด และปุ่มลบ
 - `/login/` เป็น alias ของหน้า Login ที่ `/`; ส่ง email/password ไป Go แล้ว Go ตั้ง session cookie HttpOnly
 - UI อ่านสถานะจาก `GET /api/v1/auth/me` เพื่อแสดงผลเท่านั้น การป้องกันจริงอยู่ที่ Go ทุก content route
 - `src/app`: routes/layout; `components`: shared UI; `features`: auth/content UI; `lib`: API configuration
@@ -72,6 +73,8 @@ Browser อัปโหลดตรงเข้า R2 ด้วย presigned PUT
 ไฟล์ไม่ผ่าน Go/Render; ลบวิดีโอ = ลบ object ก่อนแล้ว soft delete แถว; ลบเนื้อหาไม่ลบวิดีโอ
 ภาพปก: `contents.cover_key` (nullable, CHECK `covers/%`), object `covers/<content id>/<random>.<ext>` ชื่อใหม่ทุกครั้งกัน cache;
 flow POST (presigned PUT, JPG/PNG/WebP ≤ 10 MB) → PUT key (Go ตรวจว่า key เป็นของเนื้อหานั้นและ object เป็นภาพจริง) → ลบภาพเก่า; DELETE ลบทั้ง key และ object
+ตำแหน่งครอป: `cover_position_x/y` (smallint 0–100, default 50, ใช้เป็น CSS `object-position`) ตั้งด้วย PATCH; ภาพใหม่เริ่มที่กึ่งกลางเสมอ
+ภาพปกมี `coverDownloadUrl` (attachment ตั้งชื่อตามหัวข้อ + นามสกุลเดิม) ส่งเฉพาะ GET/PUT เนื้อหาและ endpoint ภาพปก ไม่ส่งในรายการคลัง
 ดาวน์โหลด: presigned GET แยกที่ใส่ `response-content-disposition: attachment` (ชื่อไฟล์เดิม แบบ RFC 6266)
 เพราะ iOS Safari / Android Chrome ไม่สนใจ `<a download>` ข้าม origin; header จาก R2 คือสิ่งที่ทำให้มือถือบันทึกไฟล์
 S3 SDK ตั้ง checksum เป็น "when required" เพราะ browser ส่ง CRC header ของ SDK ใหม่ไม่ได้
