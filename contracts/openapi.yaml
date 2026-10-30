@@ -1,18 +1,25 @@
 openapi: 3.1.0
 info:
   title: Infu Foundry API
-  version: 0.1.0
-  description: Foundation API. Authentication and content persistence are not implemented yet.
+  version: 0.4.0
+  description: |
+    Shared content library for signed-in users, with videos stored in Cloudflare R2.
+    Every route except /health and /auth/login needs the `infu_session` cookie.
+    Writes must be JSON (other content types get 415). Through the Cloudflare Worker the
+    gateway adds X-Gateway-Secret; direct calls to the Go host without it get 404.
 servers:
   - url: /api/v1
     description: Same-origin Cloudflare gateway
   - url: http://localhost:8080/api/v1
     description: Local Go development server
+security:
+  - session: []
 paths:
   /health:
     get:
       operationId: getHealth
       summary: Check API liveness without a database dependency
+      security: []
       responses:
         '200':
           description: API is running
@@ -32,3 +39,282 @@ paths:
                     const: ok
         '503':
           description: Gateway cannot reach a healthy backend
+
+  /auth/login:
+    post:
+      operationId: login
+      summary: Sign in with email and password; sets the session cookie
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, description: Case-insensitive }
+                password: { type: string }
+      responses:
+        '200':
+          description: Signed in
+          headers:
+            Set-Cookie:
+              description: infu_session; Path=/api; HttpOnly; SameSite=Lax; Secure outside development; 30 days
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { description: Wrong email or password }
+        '429': { description: 10 failed attempts for this email within 15 minutes }
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: End the current session (send `{}` as the body)
+      responses:
+        '204': { description: Signed out; cookie cleared }
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: The signed-in user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /contents:
+    get:
+      operationId: listContents
+      summary: All non-deleted contents, most recently updated first (max 200)
+      responses:
+        '200':
+          description: Content summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ContentSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      operationId: createContent
+      summary: Create content authored by the signed-in user
+      requestBody: { $ref: '#/components/requestBodies/ContentInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Content' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { description: Empty title and body, or title over 300 characters }
+  /contents/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      operationId: getContent
+      responses:
+        '200':
+          description: Content
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Content' }
+        '404': { description: Missing, deleted or not a UUID }
+    put:
+      operationId: updateContent
+      requestBody: { $ref: '#/components/requestBodies/ContentInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Content' }
+        '404': { description: Missing or deleted }
+        '422': { description: Invalid input }
+    delete:
+      operationId: deleteContent
+      summary: Soft delete; attached videos are kept
+      responses:
+        '204': { description: Deleted }
+        '404': { description: Missing or already deleted }
+
+  /contents/{id}/media:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      operationId: listContentMedia
+      summary: Ready videos of a content with short-lived view URLs, oldest first
+      responses:
+        '200':
+          description: Videos
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/MediaWithURL' }
+    post:
+      operationId: requestMediaUpload
+      summary: Register a pending video and get a presigned R2 upload URL
+      description: |
+        PUT the file to `uploadUrl` within 15 minutes with exactly the declared
+        Content-Type and size (both are signed), then call /media/{mediaId}/complete.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [filename, contentType, size]
+              properties:
+                filename: { type: string, maxLength: 255 }
+                contentType: { type: string, enum: [video/mp4, video/quicktime, video/webm] }
+                size: { type: integer, minimum: 1, maximum: 1073741824 }
+      responses:
+        '201':
+          description: Upload URL issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [media, uploadUrl]
+                properties:
+                  media: { $ref: '#/components/schemas/Media' }
+                  uploadUrl: { type: string, format: uri }
+        '404': { description: Content missing or deleted }
+        '422': { description: Unsupported type, empty name or size over 1 GB }
+  /media:
+    get:
+      operationId: listGallery
+      summary: Ready videos of live contents with their content title, newest first (max 200)
+      responses:
+        '200':
+          description: Gallery
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/GalleryItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /media/{mediaId}/complete:
+    parameters:
+      - $ref: '#/components/parameters/MediaId'
+    post:
+      operationId: completeMediaUpload
+      summary: Confirm the object exists in R2 with the declared size; marks it ready
+      responses:
+        '200':
+          description: Ready
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MediaWithURL' }
+        '404': { description: Unknown or deleted media }
+        '409': { description: Object not uploaded yet, or size differs }
+  /media/{mediaId}:
+    parameters:
+      - $ref: '#/components/parameters/MediaId'
+    delete:
+      operationId: deleteMedia
+      summary: Delete the R2 object, then soft delete the record
+      responses:
+        '204': { description: Deleted }
+        '404': { description: Unknown or already deleted }
+
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: infu_session
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    MediaId:
+      name: mediaId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  requestBodies:
+    ContentInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title: { type: string, maxLength: 300, description: Trimmed }
+              body: { type: string }
+  responses:
+    Unauthorized:
+      description: No valid session
+  schemas:
+    User:
+      type: object
+      required: [id, email, displayName]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        displayName: { type: string }
+    ContentSummary:
+      type: object
+      required: [id, authorName, videoCount, title, excerpt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        authorName: { type: string }
+        videoCount: { type: integer, description: Ready, non-deleted videos }
+        title: { type: string }
+        excerpt: { type: string, description: First 160 characters of the body }
+        updatedAt: { type: string, format: date-time }
+    Content:
+      type: object
+      required: [id, authorId, authorName, title, body, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        authorId: { type: string, format: uuid }
+        authorName: { type: string }
+        title: { type: string }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Media:
+      type: object
+      required: [id, contentId, uploaderId, filename, contentType, sizeBytes, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        contentId: { type: string, format: uuid }
+        uploaderId: { type: string, format: uuid }
+        filename: { type: string }
+        contentType: { type: string }
+        sizeBytes: { type: integer }
+        status: { type: string, enum: [pending, ready] }
+        createdAt: { type: string, format: date-time }
+    GalleryItem:
+      allOf:
+        - $ref: '#/components/schemas/MediaWithURL'
+        - type: object
+          required: [contentTitle, uploaderName]
+          properties:
+            contentTitle: { type: string }
+            uploaderName: { type: string }
+    MediaWithURL:
+      allOf:
+        - $ref: '#/components/schemas/Media'
+        - type: object
+          required: [url]
+          properties:
+            url: { type: string, format: uri, description: Presigned R2 GET, valid about 1 hour }
