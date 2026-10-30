@@ -15,6 +15,7 @@ import (
 	"infu-foundry/apps/api/internal/contents"
 	"infu-foundry/apps/api/internal/database"
 	"infu-foundry/apps/api/internal/httpapi"
+	"infu-foundry/apps/api/internal/media"
 )
 
 func main() {
@@ -42,6 +43,13 @@ func run(logger *slog.Logger) error {
 		logger.Info("database connected")
 		opts.Contents = contents.NewStore(db.ORM)
 		opts.Auth = auth.NewStore(db.ORM)
+		if cfg.R2.Complete() {
+			opts.Media = media.NewStore(db.ORM)
+			opts.MediaStorage = media.NewR2(cfg.R2)
+			logger.Info("video uploads enabled", "bucket", cfg.R2.Bucket)
+		} else {
+			logger.Info("R2 not configured; video uploads disabled")
+		}
 	} else {
 		logger.Info("database not configured; running foundation API")
 	}

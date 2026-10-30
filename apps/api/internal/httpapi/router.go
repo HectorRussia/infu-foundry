@@ -19,6 +19,9 @@ type Options struct {
 	// Contents and Auth are nil without a database; their routes are then absent.
 	Contents ContentStore
 	Auth     AuthStore
+	// Media and MediaStorage enable video uploads; absent without R2 credentials.
+	Media        MediaStore
+	MediaStorage MediaStorage
 }
 
 func New(logger *slog.Logger, opts Options) *fiber.App {
@@ -76,6 +79,9 @@ func New(logger *slog.Logger, opts Options) *fiber.App {
 		registerAuth(api, opts.Auth, !development)
 		if opts.Contents != nil {
 			registerContents(api, opts.Contents, requireJSON, requireSession(opts.Auth))
+		}
+		if opts.Media != nil && opts.MediaStorage != nil {
+			registerMedia(api, opts.Media, opts.MediaStorage, logger, requireJSON, requireSession(opts.Auth))
 		}
 	}
 	app.Add([]string{fiber.MethodGet, fiber.MethodHead}, "/api/v1/health", func(c fiber.Ctx) error {

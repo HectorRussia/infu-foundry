@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+
+	"infu-foundry/apps/api/internal/media"
 )
 
 type Config struct {
@@ -11,6 +13,7 @@ type Config struct {
 	Environment   string
 	DatabaseURL   string
 	GatewaySecret string
+	R2            media.R2Config
 }
 
 func Load() (Config, error) {
@@ -34,5 +37,11 @@ func Load() (Config, error) {
 		Environment:   environment,
 		DatabaseURL:   os.Getenv("DATABASE_URL"),
 		GatewaySecret: os.Getenv("GATEWAY_SECRET"),
+		R2: media.R2Config{
+			AccountID:       os.Getenv("R2_ACCOUNT_ID"),
+			Bucket:          os.Getenv("R2_BUCKET"),
+			AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
+			SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
+		},
 	}, nil
 }
