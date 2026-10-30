@@ -1,5 +1,14 @@
 # Validation — 25 October 2026
 
+## Cover images; library shows covers instead of videos
+
+- Go tests: unsupported type / >10 MB → 422, unknown content 404, PUT before upload 409, a video key or another content's key → 422, replacing deletes the old image, removing clears key and object, list/GET carry `coverUrl` but never the key, routes absent without R2; key helpers reject traversal and foreign ids
+- The local API was restarted with this code before the migration ran, so the library failed (`cover_key` missing); data was unaffected and production untouched. Gotcha added to CLAUDE.md
+- `add_content_cover` applied on Neon after review
+- Live end-to-end (temporary API :8099, Neon + `infu-media-prod`, generated 64×36 PNGs), 13/13 passed: library loads (6 items), set cover, cover URL serves `image/png`, library card and editor carry `coverUrl` without the key, replace → old object 404, remove → object 404 and no `coverUrl`, test content soft-deleted
+- Browser (localhost): library shows 6 cards with no video elements; editor shows the cover box above videos accepting JPG/PNG/WebP
+- Not yet: picking a real photo in the browser and production deploy
+
 ## Video download on phones (Safari and Chrome)
 
 - Cause: the phone players have no download item (iOS Safari never does; Chrome only on desktop), and `<a download>` is ignored for cross-origin R2 links
@@ -7,7 +16,7 @@
 - Go tests: download URL carries the filename; `AttachmentDisposition` handles ASCII, Thai (UTF-8 `filename*`) and quotes/backslashes
 - Live check against `infu-media-prod` (temporary API :8099, existing videos, read-only): download URL → 206 with `attachment; filename=...`; play URL stays inline
 - Production: Render served `downloadUrl` ~100 s after push; web redeployed (version `22bc8cd3`); both production videos' download URLs → 206 `attachment` with their filenames; the deployed gallery bundle contains the download button
-- Not verified on a physical iPhone/Android yet; iOS saves to Files (Downloads) — use Share → Save Video to put it in Photos
+- Verified on a real phone by the owner (2026-10-30): download works; iOS saves to Files (Downloads) — use Share → Save Video to put it in Photos
 
 ## Fix: videos uploaded locally did not play on production
 
