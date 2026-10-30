@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Film, Trash2, Upload, X } from 'lucide-react';
+import { DownloadLink } from '@/features/videos/download-link';
 import {
   APIError,
   deleteMedia,
@@ -160,14 +161,17 @@ export function VideoAttachments({ contentId }: { contentId: string }) {
                   <span className="truncate">{item.filename}</span>
                   <span className="shrink-0 tabular-nums">{formatSize(item.sizeBytes)}</span>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => remove(item)}
-                  aria-label={`ลบวิดีโอ ${item.filename}`}
-                  className="grid min-h-11 min-w-11 place-items-center rounded-lg hover:text-red-300"
-                >
-                  <Trash2 size={16} />
-                </button>
+                <span className="flex shrink-0 items-center">
+                  <DownloadLink href={item.downloadUrl} filename={item.filename} />
+                  <button
+                    type="button"
+                    onClick={() => remove(item)}
+                    aria-label={`ลบวิดีโอ ${item.filename}`}
+                    className="grid min-h-11 min-w-11 place-items-center rounded-lg hover:text-red-300"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </span>
               </div>
             </li>
           ))}

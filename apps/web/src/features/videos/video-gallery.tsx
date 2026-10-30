@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowUpRight, Film } from 'lucide-react';
 import { listGallery, type GalleryItem } from '@/lib/api';
+import { DownloadLink } from './download-link';
 
 const dateFormat = new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium' });
 
@@ -76,10 +77,13 @@ export function VideoGallery() {
                   className="mt-0.5 shrink-0 text-muted transition-colors group-hover:text-brand"
                 />
               </Link>
-              <p className="mt-2 truncate text-xs text-muted">
-                {item.uploaderName} · {dateFormat.format(new Date(item.createdAt))} ·{' '}
-                {item.filename}
-              </p>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate text-xs text-muted">
+                  {item.uploaderName} · {dateFormat.format(new Date(item.createdAt))} ·{' '}
+                  {item.filename}
+                </p>
+                <DownloadLink href={item.downloadUrl} filename={item.filename} label />
+              </div>
             </div>
           </li>
         ))}

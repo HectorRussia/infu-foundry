@@ -83,6 +83,8 @@ export type Media = {
   createdAt: string;
   // Short-lived presigned R2 link (about 1 hour); reload the list to refresh it.
   url: string;
+  // Same lifetime as url, but R2 sends it as an attachment so phones save the file.
+  downloadUrl: string;
 };
 
 export type GalleryItem = Media & { contentTitle: string; uploaderName: string };
