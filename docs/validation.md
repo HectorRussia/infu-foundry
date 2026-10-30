@@ -1,5 +1,34 @@
 # Validation — 25 October 2026
 
+## Library card grid and menu order
+
+- Menu order now รายการทั้งหมด → คลังเนื้อหา → เขียนเนื้อหา (checked in the browser)
+- Library at 1440px: 3 columns of 344px cards in a 1152px container; the video cover loaded (1080×1920 first frame); text covers for contents without video
+- Library at 375px: one 343px column, no horizontal scroll
+- Web lint/tsc pass; visual screenshot not captured (app window hidden) — layout verified by measurements
+
+## Video gallery ("รายการทั้งหมด")
+
+- Go test: `GET /media` needs login, returns the ready video with title and view URL, never exposes the object key
+- First draft scanned into a struct embedding `Media` (the GORM pitfall in CLAUDE.md); switched to flat rows before testing
+- Read-only query on Neon returned the real video with all fields; temporary API :8099: 401 without login, Ploy sees Horn's "Ep2 แมวน้อยผจญภัย", view URL range → 206
+- Browser (localhost): new nav item and header label work; the page needs the local API restarted to show data
+- Web lint/tsc/build pass (`/videos` exported); production not yet deployed
+
+## Desktop editor layout
+
+- Editor at ≥1024px: two columns (writing area 718px, 320px panel with status, save/copy, character count, author, last edited, delete); videos moved under the panel at the owner's request
+- Measured in the browser on localhost (Horn account): 1440px → panel and videos in the right column, mobile bar hidden; 375px → panel hidden, videos below the content, bottom action bar shown, no horizontal scroll
+- Web lint/tsc pass; production not yet deployed with this layout
+
+## Video uploads with Cloudflare R2
+
+- R2 enabled by the account owner; buckets `infu-media-dev` / `infu-media-prod` (APAC) with per-origin CORS; tokens `infu-dev` / `infu-prod` (Object Read & Write, one bucket each)
+- `create_media` applied on Neon after review
+- Go tests: auth required, unknown content 404, unsupported type / >1 GB / blank name 422, object key never exposed, complete → 409 before upload and on size mismatch, failed R2 delete keeps the row, delete removes the object, routes absent without R2 config
+- Live end-to-end (temporary API :8099, Neon + `infu-media-dev`, the 3.86 MB Gemini MP4), 15/15 passed: R2 rejected a PUT with the wrong Content-Type (403) and the wrong size (403); real PUT 200 in ~0.5 s; complete → ready; list returns a view URL; Range request → 206 with `ftyp`; full download byte-identical; delete → object 404 and list empty; test content soft-deleted
+- Web lint/tsc pass; the upload UI in the browser and production (Render R2 env, web deploy) are not verified yet
+
 ## Production: Cloudflare + Render
 
 - Render Blueprint deployed `infu-foundry-api` (free, Singapore); `API_ORIGIN` set as a Worker var, `GATEWAY_SECRET` as a Worker secret and a Render env var

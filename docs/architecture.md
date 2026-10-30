@@ -21,6 +21,10 @@ Gateway ทำ routing และ Container lifecycle เท่านั้น
 
 - App Router + TypeScript strict + Tailwind CSS utilities; global CSS กำหนด theme tokens และ base styles
 - ธีมมืดและ mobile-first: หน้า Login แยกจาก workspace shell โดยไม่มี sidebar; ภายในมี sidebar บน desktop และเมนูพับได้บนมือถือ มีเพียงคลังเนื้อหาและ Editor หัวข้อ/Content ไม่มี dashboard หรือ bottom navigation
+- Editor บน desktop (≥1024px) เป็นสองคอลัมน์: ซ้ายหัวข้อ+เนื้อหา, ขวาเป็นแผง (เลื่อนตามหน้า ไม่มี scrollbar แยก) (สถานะ, บันทึก, คัดลอก, ตัวอักษร/ผู้เขียน/แก้ไขล่าสุด, ลบ) และวิดีโอใต้แผง; มือถือคงคอลัมน์เดียว วิดีโอใต้เนื้อหา และแถบปุ่มติดล่างจอ
+- `/videos/` (เมนู "รายการทั้งหมด") แสดงวิดีโอ ready ของเนื้อหาที่ยังไม่ถูกลบ ใหม่สุดก่อน (สูงสุด 200) ผ่าน `GET /api/v1/media`; 1/2/3 คอลัมน์ตามความกว้างจอ
+- เมนูเรียง: รายการทั้งหมด → คลังเนื้อหา → เขียนเนื้อหา; หน้า workspace กว้าง `max-w-6xl` บน desktop
+- คลังเนื้อหาเป็น card grid แบบเดียวกับแกลเลอรี: ปกเป็นเฟรมแรกของวิดีโอล่าสุด (จาก `GET /media`) หรือปกข้อความถ้าไม่มีวิดีโอ/R2 ใช้ไม่ได้; ทั้งการ์ดเป็นลิงก์ไป editor
 - `/login/` เป็น alias ของหน้า Login ที่ `/`; ส่ง email/password ไป Go แล้ว Go ตั้ง session cookie HttpOnly
 - UI อ่านสถานะจาก `GET /api/v1/auth/me` เพื่อแสดงผลเท่านั้น การป้องกันจริงอยู่ที่ Go ทุก content route
 - `src/app`: routes/layout; `components`: shared UI; `features`: auth/content UI; `lib`: API configuration
@@ -60,6 +64,13 @@ Cookie `infu_session` Path `/api` HttpOnly SameSite=Lax (Secure นอก develo
 Login ผิด 10 ครั้งใน 15 นาทีต่ออีเมลถูกบล็อกชั่วคราว (in-memory ต่อ instance)
 คำขอเขียนต้องเป็น JSON เพื่อกัน form ข้ามเว็บ; development อนุญาต CORS พร้อม credentials เฉพาะ localhost:3000
 เมื่อตั้ง `GATEWAY_SECRET` Go รับเฉพาะคำขอที่มี `X-Gateway-Secret` จาก Worker (ยกเว้น health)
+
+วิดีโอ: ไฟล์อยู่ใน Cloudflare R2, ตาราง `media` เก็บ `object_key` (`media/<uuid>.<ext>`) ไม่เก็บ URL
+Browser อัปโหลดตรงเข้า R2 ด้วย presigned PUT (15 นาที, ลงนาม Content-Type และ Content-Length) แล้วเรียก
+`/media/{id}/complete` ให้ Go HEAD ตรวจขนาดก่อนตั้ง `ready`; ดูด้วย presigned GET อายุ 1 ชั่วโมง (รองรับ Range)
+ไฟล์ไม่ผ่าน Go/Render; ลบวิดีโอ = ลบ object ก่อนแล้ว soft delete แถว; ลบเนื้อหาไม่ลบวิดีโอ
+S3 SDK ตั้ง checksum เป็น "when required" เพราะ browser ส่ง CRC header ของ SDK ใหม่ไม่ได้
+Bucket dev/prod แยกกัน แต่ละตัวมี token ของตัวเอง (Object Read & Write เฉพาะ bucket) และ CORS เฉพาะ origin ของตัวเอง
 
 Container ใช้ fixed instance name เดียว จำกัดหนึ่ง instance และพักเมื่อไม่ใช้งาน 10 นาที
 Container helper รอ port พร้อม จากนั้นตรวจ health ก่อนส่ง request เดิม

@@ -6,13 +6,13 @@ API https://infu-foundry-api.onrender.com (เรียกผ่าน Worker �
 
 ## สรุปการตัดสินใจ
 
-| ส่วน                     | ที่อยู่ช่วง MVP (ฟรี)                 | อนาคต (เมื่อพร้อมจ่าย)                 |
-| ------------------------ | ------------------------------------- | -------------------------------------- |
-| หน้าเว็บ (static export) | Cloudflare Workers Static Assets      | เหมือนเดิม                             |
-| Gateway `/api/*`         | Cloudflare Worker (Free)              | เหมือนเดิม                             |
-| Go API                   | **Render Free**                       | **Cloudflare Containers** (setup เดิม) |
-| PostgreSQL               | Neon Free (AWS Singapore)             | Neon (อัปเกรดเมื่อจำเป็น)              |
-| ไฟล์ / วิดีโอ            | Cloudflare R2 (เมื่อทำฟีเจอร์อัปโหลด) | เหมือนเดิม                             |
+| ส่วน                     | ที่อยู่ช่วง MVP (ฟรี)                                        | อนาคต (เมื่อพร้อมจ่าย)                 |
+| ------------------------ | ------------------------------------------------------------ | -------------------------------------- |
+| หน้าเว็บ (static export) | Cloudflare Workers Static Assets                             | เหมือนเดิม                             |
+| Gateway `/api/*`         | Cloudflare Worker (Free)                                     | เหมือนเดิม                             |
+| Go API                   | **Render Free**                                              | **Cloudflare Containers** (setup เดิม) |
+| PostgreSQL               | Neon Free (AWS Singapore)                                    | Neon (อัปเกรดเมื่อจำเป็น)              |
+| ไฟล์ / วิดีโอ            | Cloudflare R2 — ดู [video-upload-plan](video-upload-plan.md) | เหมือนเดิม                             |
 
 ```text
 ช่วง MVP
@@ -50,6 +50,8 @@ Browser → Cloudflare Worker ─┬─ Static Assets
 - Render dashboard > New > Blueprint > เลือก repo แล้วกรอก env ที่ `sync: false`:
   - `DATABASE_URL` = Neon **pooled** URL (ห้ามใช้ direct URL สำหรับ runtime)
   - `GATEWAY_SECRET` = ค่าเดียวกับ Worker secret (เก็บไว้ใน `.env.render` ที่ gitignored)
+  - `R2_ACCOUNT_ID`, `R2_BUCKET=infu-media-prod`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` จาก token `infu-prod`
+    (ค่า key อยู่ใน `.env.render`); ไม่ตั้ง = Go ปิดการอัปโหลดวิดีโอแต่ส่วนอื่นทำงานปกติ
 - `APP_ENV=production` อยู่ใน blueprint; `PORT` Render กำหนดให้เองและ Go อ่านอยู่แล้ว
 - Migration ไม่รันบน Render; รันจากเครื่องด้วย `MIGRATION_DATABASE_URL` เท่านั้น
 

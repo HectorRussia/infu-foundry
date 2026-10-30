@@ -15,7 +15,7 @@
    และเพิ่มหัวข้อใหม่ด้านบนของ `docs/validation.md` (ทดสอบอะไร ผลเป็นยังไง อะไรยังไม่ยืนยัน)
    endpoint ใหม่ต้องอัปเดต `contracts/openapi.yaml`
 5. **ห้ามเริ่มงานต่อเอง** — เสนอได้ แต่รอผู้ใช้สั่ง
-6. **ความลับไม่เข้า repo** — `apps/api/.env` (Neon URLs) และ `.env.render` (gateway secret) ถูก gitignore;
+6. **ความลับไม่เข้า repo** — `apps/api/.env` (Neon URLs, R2 dev key) และ `.env.render` (gateway secret, R2 prod key) ถูก gitignore;
    ห้ามแสดงค่าใน chat/log และห้ามใส่รหัสผ่านผู้ใช้ในไฟล์ใด ๆ
 
 ## ระบบ
@@ -24,6 +24,7 @@
 Browser → Cloudflare Worker (apps/gateway, Workers Free)
             ├─ static Next.js export (apps/web)
             └─ /api/* + X-Gateway-Secret → Go บน Render Free (apps/api) → Neon Postgres (Singapore)
+Browser ⇄ Cloudflare R2 (วิดีโอ) ผ่าน presigned URL ที่ Go ออกให้ — bucket dev/prod แยกกัน
 ```
 
 - Production: https://infu-foundry.ponkrit-wo.workers.dev — API เรียกผ่าน Worker เท่านั้น
@@ -52,5 +53,6 @@ Render deploy อัตโนมัติเมื่อ push ที่แก้
 - Migration ใช้ direct URL (`MIGRATION_DATABASE_URL`), runtime ใช้ pooled URL (`DATABASE_URL`, host มี `-pooler`)
 - Test ด้วย fake store จับบั๊ก SQL ไม่ได้ — งาน DB ต้องทดสอบกับ Neon จริง (หลังได้รับอนุมัติ) โดยใช้ API ชั่วคราวพอร์ตอื่น เช่น 8099
 - Web เป็น static export: ไม่มี dynamic route ใช้ `?id=` แทน
+- AWS S3 SDK รุ่นใหม่ใส่ checksum ใน presigned PUT ที่ browser ส่งไม่ได้ → ต้องตั้ง checksum เป็น "when required" (ดู `internal/media/r2.go`)
 - คำเตือน CRLF จาก git/prettier บน Windows ไม่ใช่การแก้เนื้อหา ไม่ต้องแก้
 - `git add` แล้ว commit ด้วย pathspec ทีละชุด และตรวจ `git show --stat` ก่อน push ว่าไฟล์ครบ

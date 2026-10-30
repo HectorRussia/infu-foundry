@@ -4,10 +4,10 @@ A creative workspace for organizing ideas and content — from first draft to pu
 
 ## สถานะของรอบนี้
 
-Foundation scaffold + คลังเนื้อหาที่บันทึกลง Neon จริงใน local development:
-ตาราง `users` / `contents`, Content API (list/create/get/update/soft delete) และหน้า editor/คลังเนื้อหาที่เรียก API
-ผู้ใช้ทุกคนเห็นเนื้อหาทั้งหมดร่วมกัน (`author_id` บันทึกแค่ผู้เขียน) ยังไม่มี authentication จริงหรือการเรียก AI ภายนอก
+คลังเนื้อหาส่วนตัวบน Neon: ตาราง `users` / `contents` / `sessions` / `media`, Content API และหน้า editor/คลังเนื้อหา
+ผู้ใช้ทุกคนเห็นเนื้อหาทั้งหมดร่วมกัน (`author_id` บันทึกแค่ผู้เขียน) ยังไม่มีการเรียก AI ภายนอก
 Login จริงด้วย email/password (ไม่มีการสมัคร บัญชีสร้างด้วย `pnpm db:create-user`) และ session cookie จาก Go
+แนบวิดีโอ (MP4/MOV/WebM ≤ 1 GB) เข้ากับเนื้อหา ไฟล์เก็บใน Cloudflare R2 — ดู [Video upload plan](docs/video-upload-plan.md)
 
 ## เริ่มพัฒนาในเครื่อง
 
@@ -45,8 +45,9 @@ Web build มีขั้นตอนแก้ชื่อไฟล์ RSC ท�
 
 - `/` หน้าแรกเป็นการ์ด Login เดี่ยว ไม่มี sidebar หรือหน้าภาพรวม
 - `/login/` เข้าสู่ระบบด้วยบัญชีที่สร้างไว้ล่วงหน้า
-- `/contents/` คลังเนื้อหาที่ทุกบัญชีเห็นร่วมกัน
-- `/contents/editor/` เขียน แก้ไข ลบ และคัดลอกเนื้อหา (`?id=` สำหรับเนื้อหาเดิม)
+- `/contents/` คลังเนื้อหาที่ทุกบัญชีเห็นร่วมกัน แสดงเป็นการ์ดพร้อมปกวิดีโอหรือปกข้อความ
+- `/videos/` รายการทั้งหมด: แกลเลอรีวิดีโอทุกตัวพร้อมหัวข้อเนื้อหา กดหัวข้อเพื่อเปิด editor
+- `/contents/editor/` เขียน แก้ไข ลบ และคัดลอกเนื้อหา (`?id=` สำหรับเนื้อหาเดิม) และแนบ/เล่น/ลบวิดีโอหลังบันทึกแล้ว
 
 UI ใช้ Tailwind CSS ธีมมืด ออกแบบสำหรับมือถือเป็นหลัก: ช่องกรอกขนาด 16px ขึ้นไป
 และปุ่มคัดลอก/บันทึกที่เข้าถึงได้จากด้านล่างหน้าจอ ภายในมีเพียงคลังเนื้อหาและพื้นที่เขียน
@@ -117,11 +118,12 @@ Migrations สร้างตาราง `users`, `contents` และ `session
 
 ไม่ต้องสร้างไฟล์ environment เพื่อรันตามค่าเริ่มต้น
 
-| ส่วน | ตัวแปร                     | ค่าเริ่มต้น / วิธีใช้                                 |
-| ---- | -------------------------- | ----------------------------------------------------- |
-| Web  | `NEXT_PUBLIC_API_BASE_URL` | dev: `http://localhost:8080/api/v1`; build: `/api/v1` |
-| Go   | `PORT`                     | `8080`                                                |
-| Go   | `APP_ENV`                  | `development`; Container ตั้งเป็น `production`        |
+| ส่วน | ตัวแปร                                                                   | ค่าเริ่มต้น / วิธีใช้                                 |
+| ---- | ------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Web  | `NEXT_PUBLIC_API_BASE_URL`                                               | dev: `http://localhost:8080/api/v1`; build: `/api/v1` |
+| Go   | `PORT`                                                                   | `8080`                                                |
+| Go   | `APP_ENV`                                                                | `development`; Container ตั้งเป็น `production`        |
+| Go   | `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | ครบทั้ง 4 ตัว = เปิดอัปโหลดวิดีโอ; ไม่ครบ = ปิด       |
 
 - Web อ่าน `.env.local` ของ Next.js ได้ ใช้ `.env.example` เป็นตัวอย่าง
 - pnpm scripts ของ API (`dev`, `dev:api`, `db:*`) โหลด `apps/api/.env` ให้ ค่าที่ตั้งใน shell มีลำดับก่อน; Go binary เองไม่อ่าน `.env`
