@@ -3,40 +3,18 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Film } from 'lucide-react';
-import { listContents, listGallery, type ContentSummary } from '@/lib/api';
+import { listContents, type ContentSummary } from '@/lib/api';
 
 const dateFormat = new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
 
-// Latest video URL per content, used as the card cover. The gallery is optional:
-// without R2 (or on failure) cards fall back to a text cover.
-async function videoCovers(signal: AbortSignal) {
-  const covers = new Map<string, string>();
-  try {
-    for (const item of await listGallery(signal)) {
-      if (!covers.has(item.contentId)) covers.set(item.contentId, item.url);
-    }
-  } catch {
-    // Text covers only.
-  }
-  return covers;
-}
-
 export function ContentList() {
   const [items, setItems] = useState<ContentSummary[] | null>(null);
-  const [covers, setCovers] = useState(new Map<string, string>());
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     listContents(controller.signal)
-      .then((list) => {
-        setItems(list);
-        if (list.some((item) => item.videoCount > 0)) {
-          void videoCovers(controller.signal).then((found) => {
-            if (!controller.signal.aborted) setCovers(found);
-          });
-        }
-      })
+      .then(setItems)
       .catch(() => {
         if (!controller.signal.aborted) setFailed(true);
       });
@@ -72,7 +50,6 @@ export function ContentList() {
       <p className="mt-2 text-sm text-muted">{items.length.toLocaleString('th-TH')} เนื้อหา</p>
       <ul className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => {
-          const cover = covers.get(item.id);
           return (
             <li key={item.id}>
               <Link
@@ -80,16 +57,13 @@ export function ContentList() {
                 className="group flex h-full flex-col overflow-hidden rounded-2xl border border-edge bg-surface transition-colors hover:border-muted/50"
               >
                 <div className="relative aspect-video overflow-hidden bg-black">
-                  {cover ? (
-                    // First frame as a still cover; #t nudges browsers to paint it.
-                    <video
-                      src={`${cover}#t=0.1`}
-                      muted
-                      playsInline
-                      preload="metadata"
-                      tabIndex={-1}
-                      aria-hidden
-                      className="pointer-events-none size-full object-contain"
+                  {item.coverUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- presigned R2 URL, static export
+                    <img
+                      src={item.coverUrl}
+                      alt=""
+                      loading="lazy"
+                      className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                     />
                   ) : (
                     <div className="size-full bg-gradient-to-br from-elevated to-canvas p-5">
