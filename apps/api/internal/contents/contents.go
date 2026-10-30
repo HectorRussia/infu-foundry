@@ -31,6 +31,10 @@ type Content struct {
 	Body       string    `json:"body"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
+	// CoverKey is the R2 object of the cover image ("" = none); the handler turns
+	// it into a short-lived CoverURL and never exposes the key itself.
+	CoverKey string `json:"-"`
+	CoverURL string `json:"coverUrl,omitempty"`
 }
 
 type Summary struct {
@@ -40,6 +44,8 @@ type Summary struct {
 	Title      string    `json:"title"`
 	Excerpt    string    `json:"excerpt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
+	CoverKey   string    `json:"-"`
+	CoverURL   string    `json:"coverUrl,omitempty"`
 }
 
 type Input struct {
@@ -67,7 +73,8 @@ type Store struct{ db *gorm.DB }
 func NewStore(db *gorm.DB) *Store { return &Store{db: db} }
 
 const selectContent = `
-SELECT c.id, c.author_id, u.display_name AS author_name, c.title, c.body, c.created_at, c.updated_at
+SELECT c.id, c.author_id, u.display_name AS author_name, c.title, c.body, c.created_at, c.updated_at,
+  coalesce(c.cover_key, '') AS cover_key
 FROM contents c JOIN users u ON u.id = c.author_id
 WHERE c.id = ? AND c.deleted_at IS NULL`
 
@@ -75,6 +82,7 @@ func (s *Store) List(ctx context.Context) ([]Summary, error) {
 	items := []Summary{}
 	err := s.db.WithContext(ctx).Raw(`
 SELECT c.id, u.display_name AS author_name, c.title, left(c.body, ?) AS excerpt, c.updated_at,
+  coalesce(c.cover_key, '') AS cover_key,
   (SELECT count(*) FROM media m
    WHERE m.content_id = c.id AND m.status = 'ready' AND m.deleted_at IS NULL) AS video_count
 FROM contents c JOIN users u ON u.id = c.author_id
@@ -93,6 +101,29 @@ func (s *Store) Get(ctx context.Context, id string) (Content, error) {
 		return Content{}, ErrNotFound
 	}
 	return items[0], nil
+}
+
+// SetCover replaces the cover key ("" removes it) and returns the previous key so
+// the caller can delete the old image from storage.
+func (s *Store) SetCover(ctx context.Context, id, key string) (string, error) {
+	current, err := s.Get(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	var value any
+	if key != "" {
+		value = key
+	}
+	result := s.db.WithContext(ctx).Exec(
+		`UPDATE contents SET cover_key = ? WHERE id = ? AND deleted_at IS NULL`, value, id,
+	)
+	if result.Error != nil {
+		return "", result.Error
+	}
+	if result.RowsAffected == 0 {
+		return "", ErrNotFound
+	}
+	return current.CoverKey, nil
 }
 
 func (s *Store) Create(ctx context.Context, authorID string, in Input) (Content, error) {

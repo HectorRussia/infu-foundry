@@ -1,6 +1,9 @@
 package media
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestAttachmentDisposition(t *testing.T) {
 	cases := map[string]string{
@@ -12,5 +15,21 @@ func TestAttachmentDisposition(t *testing.T) {
 		if got := AttachmentDisposition(in); got != want {
 			t.Errorf("AttachmentDisposition(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestCoverKeys(t *testing.T) {
+	id := "22222222-2222-2222-2222-222222222222"
+	key, err := NewCoverKey(id, "image/webp")
+	if err != nil || !CoverKeyOf(key, id) || !strings.HasSuffix(key, ".webp") {
+		t.Fatalf("NewCoverKey = %q, %v", key, err)
+	}
+	for _, bad := range []string{"media/x.mp4", "covers/" + id + "/../secret.jpg", strings.Replace(key, "2222", "3333", 1)} {
+		if CoverKeyOf(bad, id) {
+			t.Errorf("CoverKeyOf(%q) must be false", bad)
+		}
+	}
+	if ValidCover("image/heic", 10) || ValidCover("image/png", MaxCoverSize+1) || !ValidCover("image/png", MaxCoverSize) {
+		t.Error("ValidCover limits are wrong")
 	}
 }

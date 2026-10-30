@@ -31,7 +31,7 @@ func newFakeStore() *fakeStore { return &fakeStore{items: map[string]contents.Co
 func (f *fakeStore) List(context.Context) ([]contents.Summary, error) {
 	items := []contents.Summary{}
 	for _, c := range f.items {
-		items = append(items, contents.Summary{ID: c.ID, AuthorName: c.AuthorName, Title: c.Title, Excerpt: c.Body, UpdatedAt: c.UpdatedAt})
+		items = append(items, contents.Summary{ID: c.ID, AuthorName: c.AuthorName, Title: c.Title, Excerpt: c.Body, UpdatedAt: c.UpdatedAt, CoverKey: c.CoverKey})
 	}
 	return items, nil
 }
@@ -58,6 +58,17 @@ func (f *fakeStore) Update(_ context.Context, id string, in contents.Input) (con
 	c.Title, c.Body = in.Title, in.Body
 	f.items[id] = c
 	return c, nil
+}
+
+func (f *fakeStore) SetCover(_ context.Context, id, key string) (string, error) {
+	c, ok := f.items[id]
+	if !ok {
+		return "", contents.ErrNotFound
+	}
+	old := c.CoverKey
+	c.CoverKey = key
+	f.items[id] = c
+	return old, nil
 }
 
 func (f *fakeStore) Delete(_ context.Context, id string) error {

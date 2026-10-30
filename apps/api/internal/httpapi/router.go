@@ -78,7 +78,10 @@ func New(logger *slog.Logger, opts Options) *fiber.App {
 		api := app.Group("/api/v1")
 		registerAuth(api, opts.Auth, !development)
 		if opts.Contents != nil {
-			registerContents(api, opts.Contents, requireJSON, requireSession(opts.Auth))
+			registerContents(api, opts.Contents, opts.MediaStorage, requireJSON, requireSession(opts.Auth))
+			if opts.MediaStorage != nil {
+				registerCovers(api, opts.Contents, opts.MediaStorage, logger, requireJSON, requireSession(opts.Auth))
+			}
 		}
 		if opts.Media != nil && opts.MediaStorage != nil {
 			registerMedia(api, opts.Media, opts.MediaStorage, logger, requireJSON, requireSession(opts.Auth))

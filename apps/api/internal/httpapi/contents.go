@@ -17,11 +17,29 @@ type ContentStore interface {
 	Create(ctx context.Context, authorID string, in contents.Input) (contents.Content, error)
 	Update(ctx context.Context, id string, in contents.Input) (contents.Content, error)
 	Delete(ctx context.Context, id string) error
+	SetCover(ctx context.Context, id, key string) (string, error)
+}
+
+// coverURL signs a cover key for viewing; without storage (R2 off) covers are hidden.
+func coverURL(ctx context.Context, storage MediaStorage, key string) (string, error) {
+	if storage == nil || key == "" {
+		return "", nil
+	}
+	return storage.ViewURL(ctx, key)
 }
 
 // registerContents expects requireSession to run first: every signed-in user sees
 // every content, and the session user becomes the author of new content.
-func registerContents(router fiber.Router, store ContentStore, guards ...any) {
+// storage may be nil; then no cover URLs are returned.
+func registerContents(router fiber.Router, store ContentStore, storage MediaStorage, guards ...any) {
+	withCover := func(c fiber.Ctx, item contents.Content) error {
+		url, err := coverURL(c.Context(), storage, item.CoverKey)
+		if err != nil {
+			return err
+		}
+		item.CoverURL = url
+		return c.JSON(item)
+	}
 	noStore := func(c fiber.Ctx) error {
 		c.Set("Cache-Control", "no-store")
 		return c.Next()
@@ -56,6 +74,11 @@ func registerContents(router fiber.Router, store ContentStore, guards ...any) {
 		if err != nil {
 			return err
 		}
+		for i := range items {
+			if items[i].CoverURL, err = coverURL(c.Context(), storage, items[i].CoverKey); err != nil {
+				return err
+			}
+		}
 		return c.JSON(fiber.Map{"items": items})
 	})
 	group.Post("", func(c fiber.Ctx) error {
@@ -78,7 +101,7 @@ func registerContents(router fiber.Router, store ContentStore, guards ...any) {
 		if err != nil {
 			return storeError(err)
 		}
-		return c.JSON(item)
+		return withCover(c, item)
 	})
 	group.Put("/:id", func(c fiber.Ctx) error {
 		id, err := contentID(c)
@@ -93,7 +116,7 @@ func registerContents(router fiber.Router, store ContentStore, guards ...any) {
 		if err != nil {
 			return storeError(err)
 		}
-		return c.JSON(item)
+		return withCover(c, item)
 	})
 	group.Delete("/:id", func(c fiber.Ctx) error {
 		id, err := contentID(c)

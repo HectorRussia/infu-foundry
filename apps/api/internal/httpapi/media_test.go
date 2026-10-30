@@ -89,6 +89,9 @@ func (f *fakeStorage) Stat(_ context.Context, key string) (int64, string, error)
 	if !ok {
 		return 0, "", media.ErrObjectMissing
 	}
+	if strings.HasSuffix(key, ".jpg") {
+		return size, "image/jpeg", nil
+	}
 	return size, "video/mp4", nil
 }
 
