@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { BookOpen, Flame, LogOut, Menu, PenLine } from 'lucide-react';
+import { BookOpen, Clapperboard, Flame, LogOut, Menu, PenLine } from 'lucide-react';
 import { retrySession, setSignedOut, useSession } from '@/features/auth/session';
 import { logout } from '@/lib/api';
 
 const navigation = [
+  { href: '/videos/', label: 'รายการทั้งหมด', icon: Clapperboard },
   { href: '/contents/', label: 'คลังเนื้อหา', icon: BookOpen },
   { href: '/contents/editor/', label: 'เขียนเนื้อหา', icon: PenLine },
 ];
@@ -16,7 +17,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const session = useSession();
   const pathname = usePathname().replace(/\/$/, '') || '/';
-  const workspace = pathname === '/contents' || pathname === '/contents/editor';
+  const current = navigation.find(({ href }) => href.replace(/\/$/, '') === pathname);
+  const workspace = Boolean(current);
   const editor = pathname === '/contents/editor';
   useEffect(() => {
     if (workspace && session.status === 'signed-out') router.replace('/login/');
@@ -126,7 +128,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="hidden sm:inline">
                 Workspace <span className="mx-3 text-edge">/</span>
               </span>
-              <span className="text-ink">{editor ? 'เขียนเนื้อหา' : 'คลังเนื้อหา'}</span>
+              <span className="text-ink">{current?.label}</span>
             </span>
             <span className="truncate rounded-full border border-edge bg-surface px-2.5 py-1 text-[10px] text-muted">
               {process.env.NODE_ENV === 'development' ? 'LOCAL DEV' : user.displayName}
@@ -144,7 +146,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </details>
         </header>
         <main
-          className={`mx-auto max-w-4xl px-4 pt-6 sm:px-8 lg:px-10 lg:pt-10 ${editor ? 'pb-[calc(9rem+env(safe-area-inset-bottom))]' : 'pb-10'}`}
+          className={`mx-auto max-w-4xl px-4 pt-6 sm:px-8 lg:max-w-6xl lg:px-10 lg:pt-10 ${editor ? 'pb-[calc(9rem+env(safe-area-inset-bottom))] lg:pb-12' : 'pb-10'}`}
         >
           {children}
         </main>
