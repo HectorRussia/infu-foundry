@@ -63,6 +63,7 @@ export function ContentList() {
                       src={item.coverUrl}
                       alt=""
                       loading="lazy"
+                      style={{ objectPosition: `${item.coverPositionX}% ${item.coverPositionY}%` }}
                       className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                     />
                   ) : (

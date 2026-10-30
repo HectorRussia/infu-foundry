@@ -10,6 +10,9 @@ export type ContentSummary = {
   videoCount: number;
   // Short-lived presigned R2 link to the cover image; absent when there is none.
   coverUrl?: string;
+  // CSS object-position percentages chosen in the editor (50, 50 = centre).
+  coverPositionX: number;
+  coverPositionY: number;
   title: string;
   excerpt: string;
   updatedAt: string;
@@ -23,7 +26,16 @@ export type Content = {
   body: string;
   createdAt: string;
   updatedAt: string;
-  coverUrl?: string;
+} & Partial<Cover> &
+  Pick<Cover, 'coverPositionX' | 'coverPositionY'>;
+
+// Cover is what the cover endpoints return. The download URL answers with
+// Content-Disposition: attachment (named after the title) so phones save the image.
+export type Cover = {
+  coverUrl: string;
+  coverDownloadUrl: string;
+  coverPositionX: number;
+  coverPositionY: number;
 };
 
 export type ContentInput = { title: string; body: string };
@@ -139,24 +151,28 @@ export const COVER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 export const MAX_COVER_BYTES = 10 * 1024 ** 2;
 
 // uploadCover sends the image straight to R2, then asks Go to make it the cover
-// (Go checks the object and deletes the previous cover). Returns the new cover URL.
+// (Go checks the object and deletes the previous cover). The crop starts centred.
 export async function uploadCover(
   contentId: string,
   file: File,
   onProgress: (fraction: number) => void,
   signal: AbortSignal,
-): Promise<string> {
+): Promise<Cover> {
   const path = `/contents/${encodeURIComponent(contentId)}/cover`;
   const { key, uploadUrl } = await request<{ key: string; uploadUrl: string }>(path, {
     method: 'POST',
     body: JSON.stringify({ contentType: file.type, size: file.size }),
   });
   await putToR2(uploadUrl, file, onProgress, signal);
-  const { coverUrl } = await request<{ coverUrl: string }>(path, {
-    method: 'PUT',
-    body: JSON.stringify({ key }),
+  return request<Cover>(path, { method: 'PUT', body: JSON.stringify({ key }) });
+}
+
+// setCoverPosition saves which part of the cover stays visible when cards crop it.
+export function setCoverPosition(contentId: string, x: number, y: number): Promise<Cover> {
+  return request<Cover>(`/contents/${encodeURIComponent(contentId)}/cover`, {
+    method: 'PATCH',
+    body: JSON.stringify({ x: Math.round(x), y: Math.round(y) }),
   });
-  return coverUrl;
 }
 
 export function removeCover(contentId: string): Promise<void> {

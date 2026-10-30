@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Check, Clock, Copy, PenLine, Save, Trash2 } from 'lucide-react';
-import { APIError, deleteContent, getContent, saveContent } from '@/lib/api';
+import { APIError, deleteContent, getContent, saveContent, type Cover } from '@/lib/api';
 import { CoverImage } from './cover-image';
 import { VideoAttachments } from './video-attachments';
 
@@ -26,7 +26,7 @@ function Editor({ id }: { id: string | null }) {
   const [feedback, setFeedback] = useState('');
   const [copied, setCopied] = useState(false);
   const [meta, setMeta] = useState<{ author: string; updatedAt: string } | null>(null);
-  const [coverUrl, setCoverUrl] = useState<string | undefined>();
+  const [cover, setCover] = useState<Cover | undefined>();
   const dirty = title !== saved.title || content !== saved.content;
   const empty = !title.trim() && !content.trim();
 
@@ -39,7 +39,14 @@ function Editor({ id }: { id: string | null }) {
         setContent(item.body);
         setSaved({ title: item.title, content: item.body });
         setMeta({ author: item.authorName, updatedAt: item.updatedAt });
-        setCoverUrl(item.coverUrl);
+        if (item.coverUrl && item.coverDownloadUrl) {
+          setCover({
+            coverUrl: item.coverUrl,
+            coverDownloadUrl: item.coverDownloadUrl,
+            coverPositionX: item.coverPositionX,
+            coverPositionY: item.coverPositionY,
+          });
+        }
         setLoading(false);
       })
       .catch((error: unknown) => {
@@ -261,7 +268,7 @@ function Editor({ id }: { id: string | null }) {
         </div>
         {id ? (
           <>
-            <CoverImage contentId={id} initialUrl={coverUrl} />
+            <CoverImage contentId={id} initial={cover} />
             <VideoAttachments contentId={id} />
           </>
         ) : (
