@@ -7,7 +7,8 @@
 - `add_content_cover` applied on Neon after review
 - Live end-to-end (temporary API :8099, Neon + `infu-media-prod`, generated 64×36 PNGs), 13/13 passed: library loads (6 items), set cover, cover URL serves `image/png`, library card and editor carry `coverUrl` without the key, replace → old object 404, remove → object 404 and no `coverUrl`, test content soft-deleted
 - Browser (localhost): library shows 6 cards with no video elements; editor shows the cover box above videos accepting JPG/PNG/WebP
-- Not yet: picking a real photo in the browser and production deploy
+- Production: Render served the cover routes right after push; web redeployed (version `a28cdd80`). Through the Worker: cover upload URL, R2 CORS allows the site, PUT 200, set cover, library card image 200 `image/png`, remove → object 404, test content soft-deleted; deployed editor bundle contains the cover box
+- Not yet: picking a real photo in the browser
 
 ## Video download on phones (Safari and Chrome)
 
