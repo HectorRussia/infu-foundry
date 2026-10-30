@@ -6,6 +6,7 @@
 - Fix: API returns `downloadUrl`, a presigned R2 GET with `response-content-disposition: attachment`; download buttons in the editor video list and the gallery
 - Go tests: download URL carries the filename; `AttachmentDisposition` handles ASCII, Thai (UTF-8 `filename*`) and quotes/backslashes
 - Live check against `infu-media-prod` (temporary API :8099, existing videos, read-only): download URL → 206 with `attachment; filename=...`; play URL stays inline
+- Production: Render served `downloadUrl` ~100 s after push; web redeployed (version `22bc8cd3`); both production videos' download URLs → 206 `attachment` with their filenames; the deployed gallery bundle contains the download button
 - Not verified on a physical iPhone/Android yet; iOS saves to Files (Downloads) — use Share → Save Video to put it in Photos
 
 ## Fix: videos uploaded locally did not play on production
