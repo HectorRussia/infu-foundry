@@ -24,7 +24,7 @@
 Browser → Cloudflare Worker (apps/gateway, Workers Free)
             ├─ static Next.js export (apps/web)
             └─ /api/* + X-Gateway-Secret → Go บน Render Free (apps/api) → Neon Postgres (Singapore)
-Browser ⇄ Cloudflare R2 (วิดีโอ) ผ่าน presigned URL ที่ Go ออกให้ — bucket dev/prod แยกกัน
+Browser ⇄ Cloudflare R2 (วิดีโอ) ผ่าน presigned URL ที่ Go ออกให้ — ใช้ `infu-media-prod` ทั้ง local และ production
 ```
 
 - Production: https://infu-foundry.ponkrit-wo.workers.dev — API เรียกผ่าน Worker เท่านั้น
@@ -55,4 +55,6 @@ Render deploy อัตโนมัติเมื่อ push ที่แก้
 - Web เป็น static export: ไม่มี dynamic route ใช้ `?id=` แทน
 - AWS S3 SDK รุ่นใหม่ใส่ checksum ใน presigned PUT ที่ browser ส่งไม่ได้ → ต้องตั้ง checksum เป็น "when required" (ดู `internal/media/r2.go`)
 - คำเตือน CRLF จาก git/prettier บน Windows ไม่ใช่การแก้เนื้อหา ไม่ต้องแก้
+- **DB กับ storage ต้องแยกหรือรวมไปพร้อมกัน**: ตอนนี้ local กับ production ใช้ Neon ก้อนเดียว จึงต้องใช้ R2 bucket เดียวด้วย
+  (เคยแยก bucket แล้ววิดีโอที่อัปจาก local เล่นบน production ไม่ได้) ถ้าจะแยก dev ให้แยก Neon branch และ bucket พร้อมกัน
 - `git add` แล้ว commit ด้วย pathspec ทีละชุด และตรวจ `git show --stat` ก่อน push ว่าไฟล์ครบ

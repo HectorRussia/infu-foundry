@@ -70,7 +70,8 @@ Browser อัปโหลดตรงเข้า R2 ด้วย presigned PUT
 `/media/{id}/complete` ให้ Go HEAD ตรวจขนาดก่อนตั้ง `ready`; ดูด้วย presigned GET อายุ 1 ชั่วโมง (รองรับ Range)
 ไฟล์ไม่ผ่าน Go/Render; ลบวิดีโอ = ลบ object ก่อนแล้ว soft delete แถว; ลบเนื้อหาไม่ลบวิดีโอ
 S3 SDK ตั้ง checksum เป็น "when required" เพราะ browser ส่ง CRC header ของ SDK ใหม่ไม่ได้
-Bucket dev/prod แยกกัน แต่ละตัวมี token ของตัวเอง (Object Read & Write เฉพาะ bucket) และ CORS เฉพาะ origin ของตัวเอง
+ใช้ bucket `infu-media-prod` ทั้ง local และ production เพราะทั้งสองใช้ Neon ก้อนเดียว (token `infu-prod`, Object Read & Write เฉพาะ bucket)
+CORS ของ bucket อนุญาต production และ `http://localhost:3000`; `infu-media-dev` เลิกใช้แล้ว (เก็บไว้จนกว่าจะแยก DB สำหรับ dev)
 
 Container ใช้ fixed instance name เดียว จำกัดหนึ่ง instance และพักเมื่อไม่ใช้งาน 10 นาที
 Container helper รอ port พร้อม จากนั้นตรวจ health ก่อนส่ง request เดิม

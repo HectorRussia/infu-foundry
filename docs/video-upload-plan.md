@@ -1,13 +1,12 @@
 # Video upload plan — Cloudflare R2
 
-สถานะ: **ทำแล้วใน local + ทดสอบกับ R2 dev สำเร็จ** (2026-10-30) — production ยังไม่เปิด
-(ต้องใส่ R2 env ของ prod ใน Render และ deploy เว็บ)
+สถานะ: **ใช้งานจริงบน production แล้ว** (2026-10-30) — Render มี `R2_*` ของ prod, เว็บ deploy แล้ว, ทดสอบ end-to-end ผ่าน
 
 ### สิ่งที่ทำแล้ว
 
 - ขั้น 0–3 เสร็จ: R2 + buckets + CORS + tokens, migration `media` (มี CHECK ชนิด/ขนาด/สถานะ), Go endpoints,
   ปุ่มแนบวิดีโอพร้อม progress/ยกเลิก, player, ลบ และป้ายจำนวนวิดีโอในคลังเนื้อหา
-- เหลือ: ตั้ง `R2_*` ของ prod ใน Render (token `infu-prod`, bucket `infu-media-prod`), push, deploy เว็บ, ทดสอบ production
+- Production: `R2_*` ของ prod ตั้งใน Render แล้ว (token `infu-prod`, bucket `infu-media-prod`), เว็บ deploy แล้ว
 
 ### ความคืบหน้าขั้น 0
 
@@ -16,7 +15,7 @@
 - CORS: dev อนุญาตเฉพาะ `http://localhost:3000`, prod เฉพาะ `https://infu-foundry.ponkrit-wo.workers.dev`;
   methods GET/HEAD/PUT, headers `content-type`/`range`, expose `ETag`/`Content-Length`/`Content-Range`/`Accept-Ranges`
 - Env ของ Go: `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
-  (token แยก: dev bucket ใน `apps/api/.env`, prod bucket ใน Render)
+  (ตอนนี้ทั้ง `apps/api/.env` และ Render ใช้ token `infu-prod` กับ bucket `infu-media-prod`)
 
 ## เป้าหมาย
 
@@ -25,16 +24,16 @@
 
 ## การตัดสินใจ
 
-| เรื่อง      | ตัดสินใจ                                                                |
-| ----------- | ----------------------------------------------------------------------- |
-| ที่เก็บไฟล์ | Cloudflare R2 — ไม่มีค่า egress, free tier ~10 GB, account เดียวกับเว็บ |
-| ผูกกับอะไร  | แนบกับเนื้อหา (`contents`) ไม่ใช่คลังวิดีโอแยก                          |
-| ขนาดสูงสุด  | 1 GB ต่อไฟล์ (single PUT, ไม่มี multipart/resume ในรอบแรก)              |
-| ชนิดไฟล์    | `video/mp4`, `video/quicktime`, `video/webm`                            |
-| การลบวิดีโอ | ลบ object ใน R2 ทันที + soft delete แถว (ประหยัดพื้นที่)                |
-| ลบเนื้อหา   | soft delete เนื้อหาไม่ลบวิดีโอ กู้เนื้อหาแล้ววิดีโอยังอยู่              |
-| Bucket      | `infu-media-dev` (local) และ `infu-media-prod` แยกข้อมูลทดสอบออกจากจริง |
-| การดูวิดีโอ | Go ออก presigned GET URL อายุ 1 ชั่วโมงให้ผู้ที่ login เท่านั้น         |
+| เรื่อง      | ตัดสินใจ                                                                                                             |
+| ----------- | -------------------------------------------------------------------------------------------------------------------- |
+| ที่เก็บไฟล์ | Cloudflare R2 — ไม่มีค่า egress, free tier ~10 GB, account เดียวกับเว็บ                                              |
+| ผูกกับอะไร  | แนบกับเนื้อหา (`contents`) ไม่ใช่คลังวิดีโอแยก                                                                       |
+| ขนาดสูงสุด  | 1 GB ต่อไฟล์ (single PUT, ไม่มี multipart/resume ในรอบแรก)                                                           |
+| ชนิดไฟล์    | `video/mp4`, `video/quicktime`, `video/webm`                                                                         |
+| การลบวิดีโอ | ลบ object ใน R2 ทันที + soft delete แถว (ประหยัดพื้นที่)                                                             |
+| ลบเนื้อหา   | soft delete เนื้อหาไม่ลบวิดีโอ กู้เนื้อหาแล้ววิดีโอยังอยู่                                                           |
+| Bucket      | `infu-media-prod` ทั้ง local และ production (DB ใช้ก้อนเดียว) — เดิมแยก dev/prod ดูหัวข้อ "แก้ไขหลังขึ้น production" |
+| การดูวิดีโอ | Go ออก presigned GET URL อายุ 1 ชั่วโมงให้ผู้ที่ login เท่านั้น                                                      |
 
 ## สิ่งที่เก็บใน Neon
 
@@ -94,3 +93,13 @@ CREATE TABLE media (
 ## ไฟล์ทดสอบ
 
 `gemini_generated_video_e2375a58.mp4` — 3.86 MB, MP4/H.264 (อ่านจาก header) เล่นได้ทุก browser
+
+## แก้ไขหลังขึ้น production (2026-10-30)
+
+- อาการ: วิดีโอที่อัปจาก local แสดงในแกลเลอรี production แต่เล่นไม่ได้ (R2 ตอบ `NoSuchKey`)
+- สาเหตุ: local กับ production ใช้ Neon ก้อนเดียว แต่ bucket แยก — แถว `media` ที่สร้างจาก local ชี้ไฟล์ใน `infu-media-dev`
+  ส่วน production สร้างลิงก์จาก `infu-media-prod`
+- แก้ (ทาง A): คัดลอก 2 ไฟล์จาก dev → prod ด้วย `wrangler r2 object get/put` (key และขนาดเดิม), ให้ local ใช้ `infu-media-prod`
+  กับ token `infu-prod`, เพิ่ม `http://localhost:3000` ใน CORS ของ prod bucket
+- ทางเลือกในอนาคต (ทาง B): แยก Neon branch สำหรับ dev พร้อม bucket dev — ต้องแยกทั้งสองพร้อมกันเสมอ
+- `infu-media-dev` ยังมีสำเนาเดิมและไฟล์ค้างจากการยกเลิกอัปโหลด ลบได้เมื่อแน่ใจว่าไม่ใช้

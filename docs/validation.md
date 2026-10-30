@@ -1,5 +1,22 @@
 # Validation — 25 October 2026
 
+## Fix: videos uploaded locally did not play on production
+
+- Production gallery listed `catknight_ep2.mp4` and `prod_2.mp4`, but both view URLs returned 404 `NoSuchKey` from `infu-media-prod`: they were uploaded from local into `infu-media-dev` while both environments share one Neon database
+- Copied both objects dev → prod with wrangler (same keys; downloaded sizes 121,611,532 and 55,600,971 bytes match the database)
+- Local `apps/api/.env` now uses `infu-media-prod` with the `infu-prod` token (values copied from `.env.render`, never printed); prod bucket CORS now also allows `http://localhost:3000`
+- Production check after the fix: both videos → 206, full length matches, CORS header present, MP4 header present
+- An attempt to read production keys for a per-bucket check was blocked by the permission system and not retried
+- Local upload with the new bucket not yet exercised (needs `pnpm dev` restarted)
+
+## Production: video uploads live
+
+- Render had no `R2_*` variables at first (`GET /media` 404 while the new build was live); after the owner added them with "Save and deploy", `GET /media` → 200
+- Web + Worker redeployed with `pnpm deploy:cloudflare` (version `de2bba7a`)
+- Production end-to-end through the Worker with the 3.86 MB Gemini MP4: login, create test content, upload URL, prod bucket CORS allows the site and rejects localhost (403), PUT 200 in ~2.4 s, complete → ready, gallery shows the title, range playback 206 with CORS, delete → R2 object 404, test content soft-deleted
+- One check failed in the test itself: it looked for the bucket in the URL path, but the SDK puts it in the hostname; the CORS result shows the upload went to `infu-media-prod`
+- Browser upload on production by the owners not yet observed
+
 ## Library card grid and menu order
 
 - Menu order now รายการทั้งหมด → คลังเนื้อหา → เขียนเนื้อหา (checked in the browser)
