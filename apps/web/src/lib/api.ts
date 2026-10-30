@@ -7,6 +7,7 @@ const baseURL = apiBaseURL.replace(/\/$/, '');
 export type ContentSummary = {
   id: string;
   authorName: string;
+  videoCount: number;
   title: string;
   excerpt: string;
   updatedAt: string;
@@ -69,6 +70,75 @@ export function saveContent(id: string | null, input: ContentInput): Promise<Con
 
 export function deleteContent(id: string): Promise<void> {
   return request<void>(`/contents/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export type Media = {
+  id: string;
+  contentId: string;
+  uploaderId: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  status: 'pending' | 'ready';
+  createdAt: string;
+  // Short-lived presigned R2 link (about 1 hour); reload the list to refresh it.
+  url: string;
+};
+
+export type GalleryItem = Media & { contentTitle: string; uploaderName: string };
+
+export async function listGallery(signal?: AbortSignal): Promise<GalleryItem[]> {
+  const data = await request<{ items: GalleryItem[] }>('/media', { signal });
+  return data.items;
+}
+
+export const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
+export const MAX_VIDEO_BYTES = 1024 ** 3;
+
+export async function listMedia(contentId: string, signal?: AbortSignal): Promise<Media[]> {
+  const data = await request<{ items: Media[] }>(
+    `/contents/${encodeURIComponent(contentId)}/media`,
+    { signal },
+  );
+  return data.items;
+}
+
+export function deleteMedia(id: string): Promise<void> {
+  return request<void>(`/media/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+// uploadVideo asks Go for a presigned URL, PUTs the file straight to R2 (the
+// bytes never pass through the API), then confirms so Go marks it ready.
+export async function uploadVideo(
+  contentId: string,
+  file: File,
+  onProgress: (fraction: number) => void,
+  signal: AbortSignal,
+): Promise<Media> {
+  const { media, uploadUrl } = await request<{ media: Media; uploadUrl: string }>(
+    `/contents/${encodeURIComponent(contentId)}/media`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
+    },
+  );
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl);
+    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(event.loaded / event.total);
+    };
+    xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new APIError(xhr.status)));
+    xhr.onerror = () => reject(new APIError(0));
+    xhr.onabort = () => reject(new DOMException('Upload cancelled', 'AbortError'));
+    signal.addEventListener('abort', () => xhr.abort(), { once: true });
+    xhr.send(file);
+  });
+  return request<Media>(`/media/${encodeURIComponent(media.id)}/complete`, {
+    method: 'POST',
+    body: '{}',
+  });
 }
 
 export function login(email: string, password: string): Promise<User> {
