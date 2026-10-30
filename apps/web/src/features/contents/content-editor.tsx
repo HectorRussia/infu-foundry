@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Check, Clock, Copy, PenLine, Save, Trash2 } from 'lucide-react';
 import { APIError, deleteContent, getContent, saveContent } from '@/lib/api';
+import { CoverImage } from './cover-image';
 import { VideoAttachments } from './video-attachments';
 
 const dateFormat = new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
@@ -25,6 +26,7 @@ function Editor({ id }: { id: string | null }) {
   const [feedback, setFeedback] = useState('');
   const [copied, setCopied] = useState(false);
   const [meta, setMeta] = useState<{ author: string; updatedAt: string } | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | undefined>();
   const dirty = title !== saved.title || content !== saved.content;
   const empty = !title.trim() && !content.trim();
 
@@ -37,6 +39,7 @@ function Editor({ id }: { id: string | null }) {
         setContent(item.body);
         setSaved({ title: item.title, content: item.body });
         setMeta({ author: item.authorName, updatedAt: item.updatedAt });
+        setCoverUrl(item.coverUrl);
         setLoading(false);
       })
       .catch((error: unknown) => {
@@ -257,10 +260,13 @@ function Editor({ id }: { id: string | null }) {
           )}
         </div>
         {id ? (
-          <VideoAttachments contentId={id} />
+          <>
+            <CoverImage contentId={id} initialUrl={coverUrl} />
+            <VideoAttachments contentId={id} />
+          </>
         ) : (
           <p className="rounded-2xl border border-dashed border-edge px-4 py-4 text-center text-xs text-muted">
-            บันทึกเนื้อหาก่อน แล้วจึงแนบวิดีโอได้
+            บันทึกเนื้อหาก่อน แล้วจึงใส่ภาพปกและแนบวิดีโอได้
           </p>
         )}
       </aside>

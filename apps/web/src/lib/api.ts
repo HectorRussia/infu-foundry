@@ -8,6 +8,8 @@ export type ContentSummary = {
   id: string;
   authorName: string;
   videoCount: number;
+  // Short-lived presigned R2 link to the cover image; absent when there is none.
+  coverUrl?: string;
   title: string;
   excerpt: string;
   updatedAt: string;
@@ -21,6 +23,7 @@ export type Content = {
   body: string;
   createdAt: string;
   updatedAt: string;
+  coverUrl?: string;
 };
 
 export type ContentInput = { title: string; body: string };
@@ -109,6 +112,57 @@ export function deleteMedia(id: string): Promise<void> {
   return request<void>(`/media/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+// putToR2 uploads a file to a presigned R2 URL with progress; XHR because fetch
+// cannot report upload progress.
+function putToR2(
+  uploadUrl: string,
+  file: File,
+  onProgress: (fraction: number) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl);
+    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(event.loaded / event.total);
+    };
+    xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new APIError(xhr.status)));
+    xhr.onerror = () => reject(new APIError(0));
+    xhr.onabort = () => reject(new DOMException('Upload cancelled', 'AbortError'));
+    signal.addEventListener('abort', () => xhr.abort(), { once: true });
+    xhr.send(file);
+  });
+}
+
+export const COVER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+export const MAX_COVER_BYTES = 10 * 1024 ** 2;
+
+// uploadCover sends the image straight to R2, then asks Go to make it the cover
+// (Go checks the object and deletes the previous cover). Returns the new cover URL.
+export async function uploadCover(
+  contentId: string,
+  file: File,
+  onProgress: (fraction: number) => void,
+  signal: AbortSignal,
+): Promise<string> {
+  const path = `/contents/${encodeURIComponent(contentId)}/cover`;
+  const { key, uploadUrl } = await request<{ key: string; uploadUrl: string }>(path, {
+    method: 'POST',
+    body: JSON.stringify({ contentType: file.type, size: file.size }),
+  });
+  await putToR2(uploadUrl, file, onProgress, signal);
+  const { coverUrl } = await request<{ coverUrl: string }>(path, {
+    method: 'PUT',
+    body: JSON.stringify({ key }),
+  });
+  return coverUrl;
+}
+
+export function removeCover(contentId: string): Promise<void> {
+  return request<void>(`/contents/${encodeURIComponent(contentId)}/cover`, { method: 'DELETE' });
+}
+
 // uploadVideo asks Go for a presigned URL, PUTs the file straight to R2 (the
 // bytes never pass through the API), then confirms so Go marks it ready.
 export async function uploadVideo(
@@ -124,19 +178,7 @@ export async function uploadVideo(
       body: JSON.stringify({ filename: file.name, contentType: file.type, size: file.size }),
     },
   );
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', uploadUrl);
-    xhr.setRequestHeader('Content-Type', file.type);
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) onProgress(event.loaded / event.total);
-    };
-    xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new APIError(xhr.status)));
-    xhr.onerror = () => reject(new APIError(0));
-    xhr.onabort = () => reject(new DOMException('Upload cancelled', 'AbortError'));
-    signal.addEventListener('abort', () => xhr.abort(), { once: true });
-    xhr.send(file);
-  });
+  await putToR2(uploadUrl, file, onProgress, signal);
   return request<Media>(`/media/${encodeURIComponent(media.id)}/complete`, {
     method: 'POST',
     body: '{}',
