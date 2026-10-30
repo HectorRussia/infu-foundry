@@ -8,7 +8,8 @@
 - Go tests: PATCH validation and save, list carries the position, new image resets to 50/50, download URL carries the title filename; `CoverFilename` handles Thai, unsafe characters and blank titles
 - `pnpm check` and the web static build pass
 - Live end-to-end (temporary API :8099, Neon + `infu-media-prod`, generated PNGs), 12/12 passed: library loads with positions (6 items), new content centred, PATCH saves 50/20, out of range → 422, library card carries the position without a download URL, download URL → 200 `attachment` with the UTF-8 title filename, view URL stays inline, a new image recentres, remove cover, test content soft-deleted
-- Not yet: dragging in a real browser and on a phone, production deploy
+- Production: Render served PATCH ~60 s after push; web redeployed (version `4c3315e9`). The same 12 checks through the Worker passed (R2 CORS for the site, download `attachment` with the Thai title, test content soft-deleted); deployed editor bundle contains "จัดตำแหน่ง"
+- Not yet: dragging in a real browser and on a phone
 
 ## Cover images; library shows covers instead of videos
 
