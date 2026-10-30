@@ -22,13 +22,28 @@ type MediaStore interface {
 type MediaStorage interface {
 	UploadURL(ctx context.Context, key, contentType string, size int64) (string, error)
 	ViewURL(ctx context.Context, key string) (string, error)
+	DownloadURL(ctx context.Context, key, filename string) (string, error)
 	Stat(ctx context.Context, key string) (int64, string, error)
 	Delete(ctx context.Context, key string) error
 }
 
 type mediaWithURL struct {
 	media.Media
-	URL string `json:"url"`
+	URL         string `json:"url"`
+	DownloadURL string `json:"downloadUrl"`
+}
+
+// links returns the short-lived play and download URLs of a stored video.
+func links(ctx context.Context, storage MediaStorage, item media.Media) (string, string, error) {
+	view, err := storage.ViewURL(ctx, item.ObjectKey)
+	if err != nil {
+		return "", "", err
+	}
+	download, err := storage.DownloadURL(ctx, item.ObjectKey, item.Filename)
+	if err != nil {
+		return "", "", err
+	}
+	return view, download, nil
 }
 
 // registerMedia expects requireSession in guards: any signed-in user may attach,
@@ -87,11 +102,11 @@ func registerMedia(router fiber.Router, store MediaStore, storage MediaStorage, 
 		}
 		out := make([]mediaWithURL, 0, len(items))
 		for _, item := range items {
-			url, err := storage.ViewURL(c.Context(), item.ObjectKey)
+			view, download, err := links(c.Context(), storage, item)
 			if err != nil {
 				return err
 			}
-			out = append(out, mediaWithURL{Media: item, URL: url})
+			out = append(out, mediaWithURL{Media: item, URL: view, DownloadURL: download})
 		}
 		return c.JSON(fiber.Map{"items": out})
 	})
@@ -104,15 +119,16 @@ func registerMedia(router fiber.Router, store MediaStore, storage MediaStorage, 
 		}
 		type galleryWithURL struct {
 			media.GalleryItem
-			URL string `json:"url"`
+			URL         string `json:"url"`
+			DownloadURL string `json:"downloadUrl"`
 		}
 		out := make([]galleryWithURL, 0, len(items))
 		for _, item := range items {
-			url, err := storage.ViewURL(c.Context(), item.ObjectKey)
+			view, download, err := links(c.Context(), storage, item.Media)
 			if err != nil {
 				return err
 			}
-			out = append(out, galleryWithURL{GalleryItem: item, URL: url})
+			out = append(out, galleryWithURL{GalleryItem: item, URL: view, DownloadURL: download})
 		}
 		return c.JSON(fiber.Map{"items": out})
 	})
@@ -141,11 +157,11 @@ func registerMedia(router fiber.Router, store MediaStore, storage MediaStorage, 
 			return err
 		}
 		item.Status = "ready"
-		url, err := storage.ViewURL(c.Context(), item.ObjectKey)
+		view, download, err := links(c.Context(), storage, item)
 		if err != nil {
 			return err
 		}
-		return c.JSON(mediaWithURL{Media: item, URL: url})
+		return c.JSON(mediaWithURL{Media: item, URL: view, DownloadURL: download})
 	})
 	group.Delete("/:mediaId", func(c fiber.Ctx) error {
 		id, err := idParam(c, "mediaId")

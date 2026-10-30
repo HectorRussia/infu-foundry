@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -75,6 +77,34 @@ func (r *R2) ViewURL(ctx context.Context, key string) (string, error) {
 		return "", err
 	}
 	return req.URL, nil
+}
+
+// DownloadURL is a view URL that also makes R2 answer with
+// Content-Disposition: attachment, so phones save the file instead of playing it.
+// iOS Safari and Android Chrome ignore <a download> for cross-origin links; this
+// header is what actually triggers the download there.
+func (r *R2) DownloadURL(ctx context.Context, key, filename string) (string, error) {
+	req, err := r.presign.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket:                     aws.String(r.bucket),
+		Key:                        aws.String(key),
+		ResponseContentDisposition: aws.String(AttachmentDisposition(filename)),
+	}, s3.WithPresignExpires(viewURLLifetime))
+	if err != nil {
+		return "", err
+	}
+	return req.URL, nil
+}
+
+// AttachmentDisposition keeps the original (possibly Thai) filename: an ASCII
+// fallback for old clients plus the RFC 6266 UTF-8 form that browsers prefer.
+func AttachmentDisposition(filename string) string {
+	fallback := strings.Map(func(r rune) rune {
+		if r < 0x20 || r > 0x7e || r == '"' || r == '\\' {
+			return '_'
+		}
+		return r
+	}, filename)
+	return fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, fallback, url.PathEscape(filename))
 }
 
 // Stat returns the stored size and content type of an uploaded object.

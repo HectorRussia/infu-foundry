@@ -80,6 +80,10 @@ func (f *fakeStorage) ViewURL(_ context.Context, key string) (string, error) {
 	return "https://r2.example/" + key + "?view", nil
 }
 
+func (f *fakeStorage) DownloadURL(_ context.Context, key, filename string) (string, error) {
+	return "https://r2.example/" + key + "?download=" + filename, nil
+}
+
 func (f *fakeStorage) Stat(_ context.Context, key string) (int64, string, error) {
 	size, ok := f.objects[key]
 	if !ok {
@@ -136,6 +140,9 @@ func TestMediaUploadFlow(t *testing.T) {
 	var list struct{ Items []map[string]any }
 	if err := json.NewDecoder(w.Body).Decode(&list); err != nil || len(list.Items) != 1 || !strings.Contains(list.Items[0]["url"].(string), "view") {
 		t.Fatalf("expected one ready video with a view URL, got %+v", list)
+	}
+	if dl, _ := list.Items[0]["downloadUrl"].(string); !strings.Contains(dl, "download=clip.mp4") {
+		t.Fatalf("expected a download URL carrying the original filename, got %q", dl)
 	}
 
 	w = cl.do("GET", "/api/v1/media", "", 200, session...)
