@@ -36,6 +36,7 @@ type Content struct {
 type Summary struct {
 	ID         string    `json:"id"`
 	AuthorName string    `json:"authorName"`
+	VideoCount int       `json:"videoCount"`
 	Title      string    `json:"title"`
 	Excerpt    string    `json:"excerpt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
@@ -73,7 +74,9 @@ WHERE c.id = ? AND c.deleted_at IS NULL`
 func (s *Store) List(ctx context.Context) ([]Summary, error) {
 	items := []Summary{}
 	err := s.db.WithContext(ctx).Raw(`
-SELECT c.id, u.display_name AS author_name, c.title, left(c.body, ?) AS excerpt, c.updated_at
+SELECT c.id, u.display_name AS author_name, c.title, left(c.body, ?) AS excerpt, c.updated_at,
+  (SELECT count(*) FROM media m
+   WHERE m.content_id = c.id AND m.status = 'ready' AND m.deleted_at IS NULL) AS video_count
 FROM contents c JOIN users u ON u.id = c.author_id
 WHERE c.deleted_at IS NULL
 ORDER BY c.updated_at DESC
