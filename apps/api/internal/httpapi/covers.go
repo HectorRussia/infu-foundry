@@ -37,6 +37,23 @@ func registerCovers(router fiber.Router, store ContentStore, storage MediaStorag
 		}
 	}
 
+	// coverResponse returns the cover fields of the content as now stored.
+	coverResponse := func(c fiber.Ctx, id string) error {
+		item, err := store.Get(c.Context(), id)
+		if err != nil {
+			return notFound(err)
+		}
+		if item, err = withCoverURLs(c.Context(), storage, item); err != nil {
+			return err
+		}
+		return c.JSON(fiber.Map{
+			"coverUrl":         item.CoverURL,
+			"coverDownloadUrl": item.CoverDownloadURL,
+			"coverPositionX":   item.CoverPositionX,
+			"coverPositionY":   item.CoverPositionY,
+		})
+	}
+
 	group := router.Group("/contents/:id/cover", append([]any{func(c fiber.Ctx) error {
 		c.Set("Cache-Control", "no-store")
 		return c.Next()
@@ -104,11 +121,29 @@ func registerCovers(router fiber.Router, store ContentStore, storage MediaStorag
 		if old != in.Key {
 			deleteOld(c, old)
 		}
-		url, err := storage.ViewURL(c.Context(), in.Key)
+		return coverResponse(c, id)
+	})
+
+	// PATCH moves the crop: which part of the image stays visible on cards.
+	group.Patch("", func(c fiber.Ctx) error {
+		id, err := contentID(c)
 		if err != nil {
 			return err
 		}
-		return c.JSON(fiber.Map{"coverUrl": url})
+		var in struct {
+			X *int `json:"x"`
+			Y *int `json:"y"`
+		}
+		if err := c.Bind().JSON(&in); err != nil {
+			return fiber.ErrBadRequest
+		}
+		if in.X == nil || in.Y == nil || !contents.ValidCoverPosition(*in.X, *in.Y) {
+			return fiber.ErrUnprocessableEntity
+		}
+		if err := store.SetCoverPosition(c.Context(), id, *in.X, *in.Y); err != nil {
+			return notFound(err)
+		}
+		return coverResponse(c, id)
 	})
 
 	group.Delete("", func(c fiber.Ctx) error {

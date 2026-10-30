@@ -35,6 +35,10 @@ type Content struct {
 	// it into a short-lived CoverURL and never exposes the key itself.
 	CoverKey string `json:"-"`
 	CoverURL string `json:"coverUrl,omitempty"`
+	// CoverDownloadURL saves the cover on phones (Content-Disposition: attachment).
+	CoverDownloadURL string `json:"coverDownloadUrl,omitempty"`
+	CoverPositionX   int    `json:"coverPositionX"`
+	CoverPositionY   int    `json:"coverPositionY"`
 }
 
 type Summary struct {
@@ -46,6 +50,9 @@ type Summary struct {
 	UpdatedAt  time.Time `json:"updatedAt"`
 	CoverKey   string    `json:"-"`
 	CoverURL   string    `json:"coverUrl,omitempty"`
+	// CoverPositionX/Y are CSS object-position percentages for cropping the cover.
+	CoverPositionX int `json:"coverPositionX"`
+	CoverPositionY int `json:"coverPositionY"`
 }
 
 type Input struct {
@@ -74,7 +81,7 @@ func NewStore(db *gorm.DB) *Store { return &Store{db: db} }
 
 const selectContent = `
 SELECT c.id, c.author_id, u.display_name AS author_name, c.title, c.body, c.created_at, c.updated_at,
-  coalesce(c.cover_key, '') AS cover_key
+  coalesce(c.cover_key, '') AS cover_key, c.cover_position_x, c.cover_position_y
 FROM contents c JOIN users u ON u.id = c.author_id
 WHERE c.id = ? AND c.deleted_at IS NULL`
 
@@ -82,7 +89,7 @@ func (s *Store) List(ctx context.Context) ([]Summary, error) {
 	items := []Summary{}
 	err := s.db.WithContext(ctx).Raw(`
 SELECT c.id, u.display_name AS author_name, c.title, left(c.body, ?) AS excerpt, c.updated_at,
-  coalesce(c.cover_key, '') AS cover_key,
+  coalesce(c.cover_key, '') AS cover_key, c.cover_position_x, c.cover_position_y,
   (SELECT count(*) FROM media m
    WHERE m.content_id = c.id AND m.status = 'ready' AND m.deleted_at IS NULL) AS video_count
 FROM contents c JOIN users u ON u.id = c.author_id
@@ -103,8 +110,8 @@ func (s *Store) Get(ctx context.Context, id string) (Content, error) {
 	return items[0], nil
 }
 
-// SetCover replaces the cover key ("" removes it) and returns the previous key so
-// the caller can delete the old image from storage.
+// SetCover replaces the cover key ("" removes it), recentres the crop for the new
+// image and returns the previous key so the caller can delete the old image.
 func (s *Store) SetCover(ctx context.Context, id, key string) (string, error) {
 	current, err := s.Get(ctx, id)
 	if err != nil {
@@ -115,7 +122,8 @@ func (s *Store) SetCover(ctx context.Context, id, key string) (string, error) {
 		value = key
 	}
 	result := s.db.WithContext(ctx).Exec(
-		`UPDATE contents SET cover_key = ? WHERE id = ? AND deleted_at IS NULL`, value, id,
+		`UPDATE contents SET cover_key = ?, cover_position_x = 50, cover_position_y = 50
+WHERE id = ? AND deleted_at IS NULL`, value, id,
 	)
 	if result.Error != nil {
 		return "", result.Error
@@ -124,6 +132,28 @@ func (s *Store) SetCover(ctx context.Context, id, key string) (string, error) {
 		return "", ErrNotFound
 	}
 	return current.CoverKey, nil
+}
+
+// SetCoverPosition stores which part of the cover stays visible when cropped.
+func (s *Store) SetCoverPosition(ctx context.Context, id string, x, y int) error {
+	if !ValidCoverPosition(x, y) {
+		return ErrInvalid
+	}
+	result := s.db.WithContext(ctx).Exec(
+		`UPDATE contents SET cover_position_x = ?, cover_position_y = ? WHERE id = ? AND deleted_at IS NULL`, x, y, id,
+	)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ValidCoverPosition matches the contents_cover_position_range check.
+func ValidCoverPosition(x, y int) bool {
+	return x >= 0 && x <= 100 && y >= 0 && y <= 100
 }
 
 func (s *Store) Create(ctx context.Context, authorID string, in Input) (Content, error) {

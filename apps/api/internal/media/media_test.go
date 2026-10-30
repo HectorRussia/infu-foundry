@@ -33,3 +33,16 @@ func TestCoverKeys(t *testing.T) {
 		t.Error("ValidCover limits are wrong")
 	}
 }
+
+func TestCoverFilename(t *testing.T) {
+	key := "covers/22222222-2222-2222-2222-222222222222/00000000000000000000000000000000.webp"
+	for title, want := range map[string]string{
+		"EP.1 อัศวินตัวจิ๋ว": "EP.1 อัศวินตัวจิ๋ว.webp",
+		"a/b: c?": "a-b- c-.webp",
+		"   ":     "cover.webp",
+	} {
+		if got := CoverFilename(title, key); got != want {
+			t.Errorf("CoverFilename(%q) = %q, want %q", title, got, want)
+		}
+	}
+}

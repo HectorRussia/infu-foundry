@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"infu-foundry/apps/api/internal/contents"
+	"infu-foundry/apps/api/internal/media"
 )
 
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -18,6 +19,7 @@ type ContentStore interface {
 	Update(ctx context.Context, id string, in contents.Input) (contents.Content, error)
 	Delete(ctx context.Context, id string) error
 	SetCover(ctx context.Context, id, key string) (string, error)
+	SetCoverPosition(ctx context.Context, id string, x, y int) error
 }
 
 // coverURL signs a cover key for viewing; without storage (R2 off) covers are hidden.
@@ -28,16 +30,25 @@ func coverURL(ctx context.Context, storage MediaStorage, key string) (string, er
 	return storage.ViewURL(ctx, key)
 }
 
+// withCoverURLs signs the view and download URLs of a content's cover.
+func withCoverURLs(ctx context.Context, storage MediaStorage, item contents.Content) (contents.Content, error) {
+	var err error
+	if item.CoverURL, err = coverURL(ctx, storage, item.CoverKey); err != nil || item.CoverURL == "" {
+		return item, err
+	}
+	item.CoverDownloadURL, err = storage.DownloadURL(ctx, item.CoverKey, media.CoverFilename(item.Title, item.CoverKey))
+	return item, err
+}
+
 // registerContents expects requireSession to run first: every signed-in user sees
 // every content, and the session user becomes the author of new content.
 // storage may be nil; then no cover URLs are returned.
 func registerContents(router fiber.Router, store ContentStore, storage MediaStorage, guards ...any) {
 	withCover := func(c fiber.Ctx, item contents.Content) error {
-		url, err := coverURL(c.Context(), storage, item.CoverKey)
+		item, err := withCoverURLs(c.Context(), storage, item)
 		if err != nil {
 			return err
 		}
-		item.CoverURL = url
 		return c.JSON(item)
 	}
 	noStore := func(c fiber.Ctx) error {

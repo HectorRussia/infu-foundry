@@ -39,3 +39,22 @@ func CoverKeyOf(key, contentID string) bool {
 	m := coverKeyPattern.FindStringSubmatch(key)
 	return m != nil && m[1] == strings.ToLower(contentID)
 }
+
+// CoverFilename names a downloaded cover after its content title, keeping the
+// stored extension; characters that phones and Windows reject become "-".
+func CoverFilename(title, key string) string {
+	name := strings.Map(func(r rune) rune {
+		if r < 0x20 || strings.ContainsRune(`/\:*?"<>|`, r) {
+			return '-'
+		}
+		return r
+	}, strings.TrimSpace(title))
+	if runes := []rune(name); len(runes) > 80 {
+		name = string(runes[:80])
+	}
+	if name == "" {
+		name = "cover"
+	}
+	ext := key[strings.LastIndex(key, "."):]
+	return name + ext
+}

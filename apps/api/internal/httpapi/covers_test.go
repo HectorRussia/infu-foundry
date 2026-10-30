@@ -36,15 +36,30 @@ func TestCoverFlow(t *testing.T) {
 	storage.objects[first] = 2048
 	cl.do("PUT", base, `{"key":"media/`+testMediaID+`.mp4"}`, 422, session...)                                    // a video is never a cover
 	cl.do("PUT", base, `{"key":"covers/`+otherContent+`/00000000000000000000000000000000.jpg"}`, 422, session...) // another content's key
-	cl.do("PUT", base, `{"key":"`+first+`"}`, 200, session...)
+	w := cl.do("PUT", base, `{"key":"`+first+`"}`, 200, session...)
 	if store.items[testContentID].CoverKey != first {
 		t.Fatal("cover key must be saved")
 	}
+	var set map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&set); err != nil || !strings.Contains(set["coverDownloadUrl"].(string), "download=เรื่อง.jpg") || set["coverPositionY"] != 50.0 {
+		t.Fatalf("set cover must return a named download URL and a centred crop, got %+v", set)
+	}
 
-	w := cl.do("GET", "/api/v1/contents", "", 200, session...)
+	cl.do("PATCH", base, `{"x":20,"y":101}`, 422, session...)
+	cl.do("PATCH", base, `{"x":20}`, 422, session...)
+	cl.do("PATCH", "/api/v1/contents/"+otherContent+"/cover", `{"x":20,"y":30}`, 404, session...)
+	cl.do("PATCH", base, `{"x":20,"y":30}`, 200, session...)
+	if got := store.items[testContentID]; got.CoverPositionX != 20 || got.CoverPositionY != 30 {
+		t.Fatalf("crop position must be saved, got %d,%d", got.CoverPositionX, got.CoverPositionY)
+	}
+
+	w = cl.do("GET", "/api/v1/contents", "", 200, session...)
 	var list struct{ Items []map[string]any }
 	if err := json.NewDecoder(w.Body).Decode(&list); err != nil || !strings.Contains(list.Items[0]["coverUrl"].(string), first) {
 		t.Fatalf("list must carry a signed cover URL, got %+v", list)
+	}
+	if list.Items[0]["coverPositionX"] != 20.0 {
+		t.Fatalf("list must carry the crop position, got %+v", list.Items[0])
 	}
 	if _, leaked := list.Items[0]["coverKey"]; leaked {
 		t.Fatal("cover key must not be exposed")
@@ -53,6 +68,9 @@ func TestCoverFlow(t *testing.T) {
 	second := upload()
 	storage.objects[second] = 2048
 	cl.do("PUT", base, `{"key":"`+second+`"}`, 200, session...)
+	if store.items[testContentID].CoverPositionX != 50 {
+		t.Fatal("a new cover image must start centred")
+	}
 	if _, kept := storage.objects[first]; kept {
 		t.Fatal("replacing a cover must delete the old image")
 	}
