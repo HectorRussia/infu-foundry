@@ -50,6 +50,9 @@ Render ยัง deploy อัตโนมัติเมื่อมี commit 
 
 1. ~~มี authentication จริง~~ — ทำแล้ว: login + session cookie, content routes ต้อง login
 2. Neon มี migration ล่าสุด (`pnpm db:up` จากเครื่องด้วย direct URL) และบัญชีผู้ใช้จาก `pnpm db:create-user`
+   ถ้าโค้ดที่จะเข้า `main` อ่านตารางหรือคอลัมน์ของ migration นั้น ต้อง `db:up` ก่อน merge
+   Render deploy API ทันทีที่ `apps/api/**` เข้า `main` และไม่รัน migration ให้
+   ลำดับสำหรับ agent อยู่ใน [.cursor/rules/database-migrations.mdc](../.cursor/rules/database-migrations.mdc)
 
 ## ขั้นตอนช่วง MVP (Render + Cloudflare)
 

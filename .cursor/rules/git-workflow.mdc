@@ -1,0 +1,44 @@
+---
+description: Branch, commit, pull request, and stacking rules. main is protected; agent commits need a Co-authored-by trailer.
+alwaysApply: true
+---
+
+# Git workflow
+
+The ruleset `protect-main` targets the default branch. It requires a pull request with 0 approvals and the status check named `check`. It blocks force-pushes and restricts deletions. Never push directly to `main`.
+
+## Branch and review
+
+- Branch from `main` unless you are stacking (below). Open a pull request into `main`. Do not merge unless the user asks.
+- `pnpm check` and `pnpm build` must pass before the PR is ready. The required `check` status comes from `.github/workflows/ci.yml` on `main`. What that workflow is allowed to do: [github-actions-security.mdc](github-actions-security.mdc).
+- Required GitHub approvals are 0 because the team uses one shared GitHub account. A person still reviews in the team chat before merge. A green check is not that review. Walk [code-review.mdc](code-review.mdc) first.
+- Do not start the next piece of work yourself. Propose it, then wait.
+- Commit and push only when the user or the task asks. When a change spans areas, use separate conventional commits (`feat(api)`, `feat(web)`, `docs`, and so on), staged by pathspec, in the order db → api → web → deploy → docs. Before pushing, run `git show --stat` and confirm the commit contains only those paths.
+- `pnpm deploy:cloudflare` deploys production. Ask first. `pnpm deploy` is a pnpm built-in and does not deploy this repo; the gateway script is `pnpm run deploy`.
+- A CRLF warning from git or Prettier on Windows is not a content change. Do not rewrite a file only to flip line endings.
+
+## Stacking
+
+When two changes touch the same code (for example the contents `List` query), branch the second from the first PR's branch, not from `main`. Open that PR with the first branch as its base so the diff is only the new work. A migration on the later branch must have a later timestamp than the earlier one. After the first PR merges, retarget the second onto `main`.
+
+## Agent commits
+
+Every commit an agent creates ends with this trailer, on its own line, with a blank line before it:
+
+```
+Co-authored-by: Cursor Agent <cursoragent@cursor.com>
+```
+
+## Pull request text
+
+State what you ran. In the same description, state what you did not verify. Name production Neon, a browser click-through, and any deploy when those did not happen. Do not write them as done.
+
+In that same change, update the docs it affects: decisions and setup in README, [docs/architecture.md](../../docs/architecture.md), and [docs/deployment.md](../../docs/deployment.md); add a section at the top of [docs/validation.md](../../docs/validation.md) covering what you tested, the result, and what is still unverified. New or changed endpoints update [contracts/openapi.yaml](../../contracts/openapi.yaml).
+
+## Secrets
+
+Never commit secrets or env files. `apps/api/.env` (Neon URLs, R2 key) and `.env.render` (gateway secret, R2 prod key) are gitignored. Do not print secret values in chat, logs, or PR text, and do not put a user's password in any file. `NEXT_PUBLIC_*` is compiled into the browser bundle and is not a place for secrets.
+
+## Neon
+
+Do not run `pnpm db:up`, `pnpm db:down`, `pnpm db:create-user`, or SQL against Neon until [database-migrations.mdc](database-migrations.mdc) has been followed. That file is the procedure, including applying a migration before merge.

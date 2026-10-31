@@ -79,8 +79,9 @@ contracts/       OpenAPI ของ endpoint ที่ทำจริงแล้
 docs/            ข้อตกลงสถาปัตยกรรมและผลตรวจรับ
 scripts/         Node.js scripts สำหรับ Windows/macOS/Linux
 .github/         GitHub Actions (job `check`) และ Dependabot
+.cursor/rules/   กติกา Cursor แยกตามหัวข้อ (สารบัญอยู่ที่ CLAUDE.md)
 render.yaml      Render Blueprint ของ Go API
-CLAUDE.md        กติกาการทำงานสำหรับ AI agents (AGENTS.md ชี้มาที่ไฟล์นี้)
+CLAUDE.md        สารบัญกติกาสำหรับ AI agents (AGENTS.md ชี้มาที่ไฟล์นี้)
 ```
 
 อ่านรายละเอียดและข้อตกลงรอบถัดไปใน [Architecture](docs/architecture.md)
@@ -188,5 +189,6 @@ Go tests ตรวจ HTTP boundary: health, unknown path, unsupported method �
 - [GORM PostgreSQL](https://gorm.io/docs/connecting_to_the_database.html)
 - [Goose](https://pressly.github.io/goose/)
 
-Repository: [HectorRussia/infu-foundry](https://github.com/HectorRussia/infu-foundry) ใช้ branch `main`
+Repository: [HectorRussia/infu-foundry](https://github.com/HectorRussia/infu-foundry) งานเข้า branch `main` ผ่าน pull request
 แบ่ง commit ตามส่วนงานด้วย Conventional Commits เช่น `feat(api)`, `feat(web)`, `feat(gateway)` และ `docs`
+กติกาสำหรับ agent อยู่ใน [CLAUDE.md](CLAUDE.md) และ [.cursor/rules/](.cursor/rules/)
