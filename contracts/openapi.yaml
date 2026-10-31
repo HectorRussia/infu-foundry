@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Infu Foundry API
-  version: 0.7.0
+  version: 0.8.0
   description: |
     Shared content library for signed-in users, with videos stored in Cloudflare R2.
     Every route except /health and /auth/login needs the `infu_session` cookie.
@@ -138,10 +138,56 @@ paths:
         '422': { description: Invalid input }
     delete:
       operationId: deleteContent
-      summary: Soft delete; attached videos are kept
+      summary: Move to the trash (soft delete); cover and videos are kept
       responses:
         '204': { description: Deleted }
         '404': { description: Missing or already deleted }
+
+  /trash:
+    get:
+      operationId: listTrash
+      summary: Deleted contents, most recently deleted first (max 200); never purged automatically
+      responses:
+        '200':
+          description: Trash
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/TrashedContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      operationId: emptyTrash
+      summary: Permanently delete every content in the trash with its cover and videos
+      responses:
+        '204': { description: Trash emptied }
+        '500': { description: An R2 delete failed; the remaining contents stay in the trash }
+  /trash/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    post:
+      operationId: restoreContent
+      summary: Move a deleted content back to the library (send `{}` as the body)
+      responses:
+        '204': { description: Restored }
+        '404': { description: Not in the trash }
+  /trash/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    delete:
+      operationId: purgeContent
+      summary: Permanently delete a content in the trash
+      description: |
+        Deletes the cover and every video object in R2 first, then the media and
+        content rows in one transaction. Contents not in the trash are never purged.
+      responses:
+        '204': { description: Deleted for good }
+        '404': { description: Not in the trash }
+        '500': { description: An R2 delete failed; the content stays in the trash }
 
   /contents/{id}/cover:
     parameters:
@@ -365,6 +411,20 @@ components:
         title: { type: string }
         excerpt: { type: string, description: First 160 characters of the body }
         updatedAt: { type: string, format: date-time }
+    TrashedContent:
+      type: object
+      required:
+        [id, authorName, title, excerpt, videoCount, deletedAt, coverPositionX, coverPositionY]
+      properties:
+        id: { type: string, format: uuid }
+        authorName: { type: string }
+        title: { type: string }
+        excerpt: { type: string }
+        videoCount: { type: integer }
+        deletedAt: { type: string, format: date-time }
+        coverUrl: { type: string, format: uri }
+        coverPositionX: { type: integer }
+        coverPositionY: { type: integer }
     Content:
       type: object
       required: [id, authorId, authorName, title, body, createdAt, updatedAt, coverPositionX, coverPositionY]
