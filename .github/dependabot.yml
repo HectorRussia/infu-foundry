@@ -7,6 +7,10 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: npm
     directory: /
@@ -15,6 +19,10 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    groups:
+      npm:
+        patterns:
+          - "*"
 
   - package-ecosystem: gomod
     directory: /apps/api
@@ -23,3 +31,7 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+    groups:
+      gomod:
+        patterns:
+          - "*"
