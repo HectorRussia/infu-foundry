@@ -45,3 +45,25 @@
     color: #fff;
   }
 }
+
+/* Unlayered so it wins over the browser's dialog chrome. The dimmer and the sheet live inside. */
+dialog.app-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  overflow: hidden;
+}
+dialog.app-dialog:focus {
+  outline: none;
+}
+dialog.app-dialog::backdrop {
+  background: transparent;
+}

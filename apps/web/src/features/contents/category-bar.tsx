@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import { useConfirm } from '@/components/confirm-dialog';
 import { APIError, createCategory, deleteCategory, renameCategory, type Category } from '@/lib/api';
 
 const chip = 'inline-flex min-h-11 max-w-full items-center gap-2 rounded-full border px-4 text-sm';
@@ -20,6 +21,7 @@ export function CategoryBar({
   onFilter: (category: string) => void;
   onReload: () => void;
 }) {
+  const confirm = useConfirm();
   const selected = categories.find((category) => category.id === filter);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
@@ -77,21 +79,26 @@ export function CategoryBar({
 
   async function remove() {
     if (!selected || busy) return;
-    const ok = window.confirm(
-      `ลบหมวดหมู่ “${selected.name}”?\nเนื้อหาในหมวดนี้จะกลายเป็นไม่มีหมวดหมู่ แต่จะไม่ถูกลบหรือย้ายไปถังขยะ`,
-    );
-    if (!ok) return;
-    setBusy(true);
-    setMessage('');
-    try {
-      await deleteCategory(selected.id);
-      onFilter('');
-      onReload();
-    } catch {
-      setMessage('ลบหมวดหมู่ไม่สำเร็จ');
-    } finally {
-      setBusy(false);
-    }
+    const category = selected;
+    await confirm({
+      title: 'ลบหมวดหมู่',
+      message: `ลบหมวดหมู่ “${category.name}”?\nเนื้อหาในหมวดนี้จะกลายเป็นไม่มีหมวดหมู่ แต่จะไม่ถูกลบหรือย้ายไปถังขยะ`,
+      confirmLabel: 'ลบหมวดหมู่',
+      danger: true,
+      onConfirm: async () => {
+        setBusy(true);
+        setMessage('');
+        try {
+          await deleteCategory(category.id);
+          onFilter('');
+          onReload();
+        } catch {
+          setMessage('ลบหมวดหมู่ไม่สำเร็จ');
+        } finally {
+          setBusy(false);
+        }
+      },
+    });
   }
 
   const filters: { value: string; label: string }[] = [

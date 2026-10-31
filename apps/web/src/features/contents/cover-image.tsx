@@ -11,6 +11,7 @@ import {
   uploadCover,
   type Cover,
 } from '@/lib/api';
+import { useConfirm } from '@/components/confirm-dialog';
 import { DownloadLink } from '@/features/videos/download-link';
 
 type Position = { x: number; y: number };
@@ -18,6 +19,7 @@ type Position = { x: number; y: number };
 const clamp = (value: number) => Math.min(100, Math.max(0, value));
 
 export function CoverImage({ contentId, initial }: { contentId: string; initial?: Cover }) {
+  const confirm = useConfirm();
   const [cover, setCover] = useState<Cover | undefined>(initial);
   // While adjusting, `draft` is the unsaved crop; otherwise the saved one is shown.
   const [draft, setDraft] = useState<Position | null>(null);
@@ -63,14 +65,21 @@ export function CoverImage({ contentId, initial }: { contentId: string; initial?
   }
 
   async function remove() {
-    if (!window.confirm('ลบภาพปก?')) return;
-    try {
-      await removeCover(contentId);
-      setCover(undefined);
-      setMessage('ลบภาพปกแล้ว');
-    } catch {
-      setMessage('ลบภาพปกไม่สำเร็จ ลองอีกครั้ง');
-    }
+    await confirm({
+      title: 'ลบภาพปก',
+      message: 'ลบภาพปก?',
+      confirmLabel: 'ลบภาพปก',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await removeCover(contentId);
+          setCover(undefined);
+          setMessage('ลบภาพปกแล้ว');
+        } catch {
+          setMessage('ลบภาพปกไม่สำเร็จ ลองอีกครั้ง');
+        }
+      },
+    });
   }
 
   async function savePosition() {

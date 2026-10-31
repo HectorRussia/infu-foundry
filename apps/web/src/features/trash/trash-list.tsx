@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { Film, RotateCcw, Trash2 } from 'lucide-react';
+import { useConfirm } from '@/components/confirm-dialog';
 import { emptyTrash, listTrash, purgeContent, restoreContent, type Trashed } from '@/lib/api';
 
 const dateFormat = new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
 
 export function TrashList() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<Trashed[] | null>(null);
   const [failed, setFailed] = useState(false);
   // id of the item being restored/deleted, or 'all' while emptying the trash.
@@ -26,45 +28,62 @@ export function TrashList() {
   const name = (item: Trashed) => item.title || 'ไม่มีหัวข้อ';
 
   async function act(item: Trashed, action: 'restore' | 'purge') {
-    if (
-      action === 'purge' &&
-      !window.confirm(`ลบ "${name(item)}" ถาวร?\nภาพปกและวิดีโอทั้งหมดจะถูกลบด้วย กู้คืนไม่ได้`)
-    ) {
+    const run = async () => {
+      setBusy(item.id);
+      setMessage('');
+      try {
+        await (action === 'restore' ? restoreContent(item.id) : purgeContent(item.id));
+        setItems((current) => current?.filter(({ id }) => id !== item.id) ?? null);
+        setMessage(
+          action === 'restore'
+            ? `กู้คืน "${name(item)}" กลับไปที่คลังเนื้อหาแล้ว`
+            : `ลบ "${name(item)}" ถาวรแล้ว`,
+        );
+      } catch {
+        setMessage(
+          action === 'restore' ? 'กู้คืนไม่สำเร็จ ลองอีกครั้ง' : 'ลบถาวรไม่สำเร็จ ลองอีกครั้ง',
+        );
+      } finally {
+        setBusy(null);
+      }
+    };
+    if (action === 'restore') {
+      await run();
       return;
     }
-    setBusy(item.id);
-    setMessage('');
-    try {
-      await (action === 'restore' ? restoreContent(item.id) : purgeContent(item.id));
-      setItems((current) => current?.filter(({ id }) => id !== item.id) ?? null);
-      setMessage(
-        action === 'restore'
-          ? `กู้คืน "${name(item)}" กลับไปที่คลังเนื้อหาแล้ว`
-          : `ลบ "${name(item)}" ถาวรแล้ว`,
-      );
-    } catch {
-      setMessage(action === 'restore' ? 'กู้คืนไม่สำเร็จ ลองอีกครั้ง' : 'ลบถาวรไม่สำเร็จ ลองอีกครั้ง');
-    } finally {
-      setBusy(null);
-    }
+    await confirm({
+      title: 'ลบถาวร',
+      message: `ลบ "${name(item)}" ถาวร?\nภาพปกและวิดีโอทั้งหมดจะถูกลบด้วย กู้คืนไม่ได้`,
+      confirmLabel: 'ลบถาวร',
+      danger: true,
+      onConfirm: run,
+    });
   }
 
   async function empty() {
     if (!items?.length) return;
-    if (!window.confirm(`ล้างถังขยะ ${items.length} รายการ?\nภาพปกและวิดีโอทั้งหมดจะถูกลบด้วย กู้คืนไม่ได้`)) return;
-    setBusy('all');
-    setMessage('');
-    try {
-      await emptyTrash();
-      setItems([]);
-      setMessage('ล้างถังขยะแล้ว');
-    } catch {
-      // Some items may already be gone; reload to show what is left.
-      setItems(await listTrash().catch(() => items));
-      setMessage('ล้างถังขยะไม่ครบ ลองอีกครั้ง');
-    } finally {
-      setBusy(null);
-    }
+    const current = items;
+    await confirm({
+      title: 'ล้างถังขยะ',
+      message: `ล้างถังขยะ ${current.length} รายการ?\nภาพปกและวิดีโอทั้งหมดจะถูกลบด้วย กู้คืนไม่ได้`,
+      confirmLabel: 'ล้างถังขยะ',
+      danger: true,
+      onConfirm: async () => {
+        setBusy('all');
+        setMessage('');
+        try {
+          await emptyTrash();
+          setItems([]);
+          setMessage('ล้างถังขยะแล้ว');
+        } catch {
+          // Some items may already be gone; reload to show what is left.
+          setItems(await listTrash().catch(() => current));
+          setMessage('ล้างถังขยะไม่ครบ ลองอีกครั้ง');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
   }
 
   return (
@@ -84,10 +103,14 @@ export function TrashList() {
         )}
       </div>
       <p className="mt-2 text-sm text-muted">
-        เนื้อหาที่ลบจะอยู่ที่นี่จนกว่าจะกู้คืนหรือลบถาวร การลบถาวรจะลบภาพปกและวิดีโอของเนื้อหานั้นด้วย
+        เนื้อหาที่ลบจะอยู่ที่นี่จนกว่าจะกู้คืนหรือลบถาวร
+        การลบถาวรจะลบภาพปกและวิดีโอของเนื้อหานั้นด้วย
       </p>
       {message && (
-        <p role="status" className="mt-4 rounded-xl border border-edge bg-surface px-4 py-3 text-sm">
+        <p
+          role="status"
+          className="mt-4 rounded-xl border border-edge bg-surface px-4 py-3 text-sm"
+        >
           {message}
         </p>
       )}
@@ -95,7 +118,9 @@ export function TrashList() {
       {failed ? (
         <section className="mt-5 rounded-2xl border border-edge bg-surface px-6 py-16 text-center">
           <h2 className="font-medium">โหลดถังขยะไม่ได้</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">ตรวจว่า API เปิดอยู่ แล้วรีเฟรชหน้านี้</p>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            ตรวจว่า API เปิดอยู่ แล้วรีเฟรชหน้านี้
+          </p>
         </section>
       ) : !items ? (
         <p className="mt-5 text-sm text-muted">กำลังโหลดถังขยะ…</p>

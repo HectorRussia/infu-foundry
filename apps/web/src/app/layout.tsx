@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { AppShell } from '@/components/app-shell';
+import { ConfirmProvider } from '@/components/confirm-dialog';
 import '@fontsource-variable/noto-sans-thai';
 import './globals.css';
 
@@ -21,7 +22,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="th">
       <body>
-        <AppShell>{children}</AppShell>
+        <ConfirmProvider>
+          <AppShell>{children}</AppShell>
+        </ConfirmProvider>
       </body>
     </html>
   );

@@ -1,3 +1,14 @@
+# Validation — 31 October 2026
+
+## In-app confirm dialog
+
+- Every `window.confirm` in `apps/web` now goes through one promise-based `useConfirm()`. `useAlert()` is the notice equivalent. There was no `window.alert` or `window.prompt` in the app. The dialog is a native `<dialog>` opened with `showModal()` (`role="alertdialog"`, labelled, focus moves in and is trapped, Esc and backdrop cancel unless an action is in flight, focus returns to the trigger, body scroll locked). Mobile is a full-width bottom sheet; buttons are `min-h-12`. Irreversible actions use the danger style and focus “ยกเลิก” first. Moving a content to the trash stays a reversible confirm (brand button, focus on “ลบเนื้อหา”) because the existing copy says it can be restored from ถังขยะ
+- Copy is unchanged: category delete still says the contents become uncategorized and are not deleted or moved to the trash; trash purge and empty-trash still warn that covers and videos are removed and cannot be restored; video delete stays permanent; cover delete stays “ลบภาพปก?”
+- Web tests cover confirm defaults, danger focus, the pending label “กำลังทำ…”, dismiss blocked while pending or closing, the queue, reduced motion, and a source scan that `window.alert` / `window.confirm` / `window.prompt` are gone (11/11 with the library order tests). Gateway tests 7/7. `go vet` and Go tests passed
+- `pnpm check` and `pnpm build` passed on Node.js 24.22.2 (static export, Go binaries, Worker dry-run)
+- Browser, against a local mock API (not Neon): category delete on a 1280px desktop viewport and a 390px phone viewport. Esc and the backdrop dismiss and return focus to “ลบหมวดหมู่”. The danger confirm opens with focus on “ยกเลิก”. Tab wraps between ยกเลิก and ลบหมวดหมู่. While the delete request is in flight the confirm button reads “กำลังทำ…” and Esc / the backdrop do nothing. Editor move-to-trash focuses “ลบเนื้อหา” (reversible). Cover delete, video delete, trash purge, and empty-trash open with focus on “ยกเลิก” and the existing Thai copy
+- Not verified: production Neon, a browser click-through against the live API, a physical phone, and any deploy
+
 # Validation — 25 October 2026
 
 ## Library pin and manual order
