@@ -9,7 +9,8 @@
 - Web: "ถังขยะ" page in the menu with restore / delete permanently / empty trash; content delete now says it moves to the trash; video delete warns it is permanent
 - `pnpm check` and the web static build pass
 - Live end-to-end after the owner's approval (temporary API :8099, Neon + `infu-media-prod`), 17/17 passed: trash lists 12 older deleted contents, a test content with cover and video goes to the trash first with `videoCount` 1, restore brings it back, a live content cannot be purged (404) and its objects survive, purge → 204 with cover and video 404 in R2, the 12 older items untouched, content 404, second purge 404. Only the test content was purged; `DELETE /trash` was not called
-- Not yet: browser check, production deploy
+- Production: Render served `/trash` within ~15 s of the check; web redeployed (version `1d13b38d`). The same 17 checks through the Worker passed (only the new test content purged, the 12 older trash items untouched); `/trash/` serves the page and its chunk contains "ล้างถังขยะ"
+- Not yet: the owners using the trash page in a browser
 
 ## Cover crop position and cover download
 
