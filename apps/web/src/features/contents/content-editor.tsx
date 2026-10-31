@@ -3,7 +3,16 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Check, Clock, Copy, PenLine, Save, Trash2 } from 'lucide-react';
-import { APIError, deleteContent, getContent, saveContent, type Cover } from '@/lib/api';
+import {
+  APIError,
+  createCategory,
+  deleteContent,
+  getContent,
+  listCategories,
+  saveContent,
+  type Category,
+  type Cover,
+} from '@/lib/api';
 import { CoverImage } from './cover-image';
 import { VideoAttachments } from './video-attachments';
 
@@ -19,7 +28,13 @@ function Editor({ id }: { id: string | null }) {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [saved, setSaved] = useState({ title: '', content: '' });
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [categoryName, setCategoryName] = useState('');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [newCategory, setNewCategory] = useState('');
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [categoryNote, setCategoryNote] = useState('');
+  const [saved, setSaved] = useState({ title: '', content: '', categoryId: null as string | null });
   const [loading, setLoading] = useState(Boolean(id));
   const [missing, setMissing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,17 +42,33 @@ function Editor({ id }: { id: string | null }) {
   const [copied, setCopied] = useState(false);
   const [meta, setMeta] = useState<{ author: string; updatedAt: string } | null>(null);
   const [cover, setCover] = useState<Cover | undefined>();
-  const dirty = title !== saved.title || content !== saved.content;
+  const dirty =
+    title !== saved.title || content !== saved.content || categoryId !== saved.categoryId;
   const empty = !title.trim() && !content.trim();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    listCategories(controller.signal)
+      .then((items) => {
+        if (!controller.signal.aborted) setCategories(items);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setCategoryNote('โหลดหมวดหมู่ไม่ได้');
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     if (!id) return;
     const controller = new AbortController();
     getContent(id, controller.signal)
       .then((item) => {
+        const loadedCategory = item.categoryId ?? null;
         setTitle(item.title);
         setContent(item.body);
-        setSaved({ title: item.title, content: item.body });
+        setCategoryId(loadedCategory);
+        setCategoryName(item.categoryName ?? '');
+        setSaved({ title: item.title, content: item.body, categoryId: loadedCategory });
         setMeta({ author: item.authorName, updatedAt: item.updatedAt });
         if (item.coverUrl && item.coverDownloadUrl) {
           setCover({
@@ -72,9 +103,12 @@ function Editor({ id }: { id: string | null }) {
   async function save() {
     setSaving(true);
     try {
-      const item = await saveContent(id, { title, body: content });
+      const item = await saveContent(id, { title, body: content, categoryId });
+      const nextCategory = item.categoryId ?? null;
       setTitle(item.title);
-      setSaved({ title: item.title, content: item.body });
+      setCategoryId(nextCategory);
+      setCategoryName(item.categoryName ?? '');
+      setSaved({ title: item.title, content: item.body, categoryId: nextCategory });
       setMeta({ author: item.authorName, updatedAt: item.updatedAt });
       setFeedback('บันทึกแล้ว');
       if (!id) router.replace(`/contents/editor/?id=${item.id}`);
@@ -92,6 +126,31 @@ function Editor({ id }: { id: string | null }) {
       router.replace('/contents/');
     } catch {
       setFeedback('ลบไม่สำเร็จ ลองอีกครั้ง');
+    }
+  }
+
+  async function addCategory() {
+    const name = newCategory.trim();
+    if (!name || creatingCategory) return;
+    setCreatingCategory(true);
+    setCategoryNote('');
+    try {
+      const category = await createCategory(name);
+      setCategories((current) =>
+        [...current, category].sort((a, b) => a.name.localeCompare(b.name, 'th')),
+      );
+      setCategoryId(category.id);
+      setCategoryName(category.name);
+      setNewCategory('');
+      setCategoryNote('สร้างแล้ว — กดบันทึกเนื้อหาเพื่อจัดเข้าหมวดนี้');
+    } catch (error) {
+      setCategoryNote(
+        error instanceof APIError && error.status === 409
+          ? 'มีหมวดชื่อนี้อยู่แล้ว'
+          : 'สร้างหมวดหมู่ไม่สำเร็จ',
+      );
+    } finally {
+      setCreatingCategory(false);
     }
   }
 
@@ -175,6 +234,70 @@ function Editor({ id }: { id: string | null }) {
             placeholder="ตั้งชื่อให้ไอเดียนี้…"
             className="min-h-14 w-full rounded-xl border border-edge bg-surface px-4 py-3.5 text-base leading-relaxed text-ink placeholder:text-muted/60 focus:border-brand/60 focus:outline-none focus:ring-2 focus:ring-brand/15 sm:px-5 sm:text-lg lg:min-h-16 lg:px-7 lg:text-xl lg:font-medium"
           />
+        </div>
+        <div>
+          <label htmlFor="category" className="mb-3 block text-sm font-medium">
+            หมวดหมู่
+            <span className="mt-1 block font-normal text-muted">
+              ไม่บังคับ หนึ่งเนื้อหาอยู่ได้หมวดเดียว
+            </span>
+          </label>
+          <select
+            id="category"
+            value={categoryId ?? ''}
+            onChange={(event) => {
+              const next = event.target.value || null;
+              setCategoryId(next);
+              setCategoryName(categories.find((category) => category.id === next)?.name ?? '');
+              setFeedback('');
+            }}
+            className="min-h-12 w-full rounded-xl border border-edge bg-surface px-4 text-base text-ink focus:border-brand/60 focus:outline-none focus:ring-2 focus:ring-brand/15"
+          >
+            <option value="">ไม่มีหมวดหมู่</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+            {categoryId && !categories.some((category) => category.id === categoryId) && (
+              <option value={categoryId}>{categoryName || 'หมวดหมู่ที่เลือก'}</option>
+            )}
+          </select>
+          <details className="mt-3">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center text-sm text-muted [&::-webkit-details-marker]:hidden">
+              สร้างหมวดหมู่ใหม่
+            </summary>
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+              <input
+                value={newCategory}
+                onChange={(event) => setNewCategory(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void addCategory();
+                  }
+                }}
+                maxLength={80}
+                autoComplete="off"
+                placeholder="ชื่อหมวดหมู่ใหม่…"
+                aria-label="ชื่อหมวดหมู่ใหม่"
+                className="min-h-12 w-full rounded-xl border border-edge bg-surface px-4 text-base text-ink placeholder:text-muted/60 focus:border-brand/60 focus:outline-none focus:ring-2 focus:ring-brand/15"
+              />
+              <button
+                type="button"
+                onClick={() => void addCategory()}
+                disabled={creatingCategory || !newCategory.trim()}
+                className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl border border-edge bg-elevated px-4 text-sm font-medium disabled:opacity-40"
+              >
+                {creatingCategory ? 'กำลังสร้าง…' : 'สร้าง'}
+              </button>
+            </div>
+          </details>
+          {categoryNote && (
+            <p role="status" className="mt-2 text-xs leading-relaxed text-muted">
+              {categoryNote}
+            </p>
+          )}
         </div>
         <section>
           <div className="mb-3 flex items-center justify-between gap-2">

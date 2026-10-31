@@ -53,6 +53,8 @@ Render ยัง deploy อัตโนมัติเมื่อมี commit 
    ถ้าโค้ดที่จะเข้า `main` อ่านตารางหรือคอลัมน์ของ migration นั้น ต้อง `db:up` ก่อน merge
    Render deploy API ทันทีที่ `apps/api/**` เข้า `main` และไม่รัน migration ให้
    ลำดับสำหรับ agent อยู่ใน [.cursor/rules/database-migrations.mdc](../.cursor/rules/database-migrations.mdc)
+   หมวดหมู่ (`add_categories`) เป็นตารางใหม่ที่ API join ทันที ต้อง `db:up` ก่อนที่ Render จะได้โค้ดนี้
+   ตารางเปล่าเพิ่มเข้าไปขณะ API เก่ายังรันอยู่ได้ แต่ถ้า deploy ก่อน migration คลังเนื้อหาและ editor จะโหลดไม่ได้
 
 ## ขั้นตอนช่วง MVP (Render + Cloudflare)
 

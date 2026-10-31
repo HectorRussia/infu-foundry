@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { Plus } from 'lucide-react';
 import { ContentList } from '@/features/contents/content-list';
 
@@ -17,7 +18,9 @@ export default function ContentsPage() {
           เขียนเนื้อหา
         </Link>
       </div>
-      <ContentList />
+      <Suspense fallback={<p className="mt-5 text-sm text-muted">กำลังโหลดเนื้อหา…</p>}>
+        <ContentList />
+      </Suspense>
     </>
   );
 }

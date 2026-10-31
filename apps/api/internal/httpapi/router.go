@@ -16,9 +16,10 @@ type Options struct {
 	// GatewaySecret, when set, must arrive as X-Gateway-Secret on every API call
 	// except health, so a public host (Render) only serves the Cloudflare Worker.
 	GatewaySecret string
-	// Contents and Auth are nil without a database; their routes are then absent.
-	Contents ContentStore
-	Auth     AuthStore
+	// Contents, Categories and Auth are nil without a database; their routes are then absent.
+	Contents   ContentStore
+	Categories CategoryStore
+	Auth       AuthStore
 	// Media and MediaStorage enable video uploads; absent without R2 credentials.
 	Media        MediaStore
 	MediaStorage MediaStorage
@@ -87,6 +88,9 @@ func New(logger *slog.Logger, opts Options) *fiber.App {
 			if opts.Trash != nil && opts.MediaStorage != nil {
 				registerTrash(api, opts.Trash, opts.MediaStorage, logger, requireJSON, requireSession(opts.Auth))
 			}
+		}
+		if opts.Categories != nil {
+			registerCategories(api, opts.Categories, requireJSON, requireSession(opts.Auth))
 		}
 		if opts.Media != nil && opts.MediaStorage != nil {
 			registerMedia(api, opts.Media, opts.MediaStorage, logger, requireJSON, requireSession(opts.Auth))

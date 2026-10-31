@@ -1,5 +1,16 @@
 # Validation — 25 October 2026
 
+## Categories
+
+- A content has at most one shared category, optional. The link lives in `content_categories` (`content_id` primary key) so a later many-to-many tag model does not rewrite `contents`. No nested categories
+- Migration `add_categories` creates `categories` and `content_categories` only. Down drops the link table, then `categories`. Deleting a category cascades to the link, so contents stay and become uncategorized. Existing rows have no link, so list, editor, trash, videos and covers keep working. Soft-deleted contents keep the link; a permanent purge removes it with the content row
+- API: GET/POST `/categories`, PATCH/DELETE `/categories/{id}`; GET `/contents?category=` (`uncategorized` or a UUID); create/update accept `categoryId` (omit leaves it, null clears it, unknown UUID is 422)
+- Web: library chips for all / uncategorized / each category, plus create, rename and delete; editor select and “สร้างหมวดหมู่ใหม่”. Inputs stay 16px. Deleting a category tells the user contents are not deleted or trashed
+- Go tests: session required, name validation, duplicate names (case-insensitive), rename, omit vs null vs assign, a rejected category does not change the content, filters, and deleting a category leaves the content uncategorized. Gateway tests 6/6, including `/categories` forwarded like other `/api` routes
+- `pnpm check` passed (ESLint, TypeScript, gateway tests, `go vet`, Go tests) and `pnpm build` passed (static export of `/contents` and `/contents/editor`, Go server and migrate binaries, Worker dry-run). This environment ran Node 22.23.4, so pnpm warned that the repo asks for Node >= 24; the commands still exited 0
+- Not yet: migration on the live Neon database (needs the owner’s approval before `pnpm db:up`), a browser click-through, and production. Do not merge until `db:up` has run, or the library and editor break on the Render deploy
+- After merging `origin/main` (CI workflow and project rules) into this branch: `pnpm check` and `pnpm build` passed again on Node 22.23.4 (pnpm warned that the repo asks for Node >= 24). The merge changed docs only; no migration or application code
+
 ## Cursor project rules
 
 - Moved the detailed agent procedures out of `CLAUDE.md` into `.cursor/rules/` (one `.mdc` file per topic). `CLAUDE.md` is now an index; `AGENTS.md` points at it and at that directory

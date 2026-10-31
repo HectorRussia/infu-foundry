@@ -20,7 +20,8 @@
   }
   button,
   input,
-  textarea {
+  textarea,
+  select {
     font: inherit;
   }
   button,
@@ -35,7 +36,7 @@
   button:disabled {
     cursor: not-allowed;
   }
-  :where(a, button, input, textarea):focus-visible {
+  :where(a, button, input, textarea, select):focus-visible {
     outline: 2px solid var(--color-brand);
     outline-offset: 4px;
   }

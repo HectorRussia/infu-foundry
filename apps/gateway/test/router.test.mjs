@@ -26,6 +26,22 @@ test('API forwarding preserves method, query, body, headers and response cookies
   assert.equal(response.headers.get('Set-Cookie'), 'session=next; HttpOnly');
 });
 
+test('category routes are forwarded with the rest of /api', async () => {
+  const request = new Request('https://foundry.example/api/v1/categories?category=uncategorized', {
+    method: 'DELETE',
+  });
+  const response = await routeRequest(
+    request,
+    async (incoming) => {
+      assert.equal(incoming.url, request.url);
+      assert.equal(incoming.method, 'DELETE');
+      return new Response(null, { status: 204 });
+    },
+    async () => assert.fail('categories must not hit static assets'),
+  );
+  assert.equal(response.status, 204);
+});
+
 test('unknown pages retain the asset service 404, including /api-like paths', async () => {
   for (const path of ['/missing/', '/apiary/']) {
     const response = await routeRequest(

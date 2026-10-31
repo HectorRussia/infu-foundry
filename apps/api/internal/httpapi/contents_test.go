@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -24,14 +25,31 @@ const (
 
 var testUser = auth.User{ID: "11111111-1111-1111-1111-111111111111", Email: "horn@example.com", DisplayName: "Horn"}
 
-type fakeStore struct{ items map[string]contents.Content }
+type fakeStore struct {
+	items      map[string]contents.Content
+	categories map[string]contents.Category
+	contentSeq int
+	catSeq     int
+}
 
-func newFakeStore() *fakeStore { return &fakeStore{items: map[string]contents.Content{}} }
+func newFakeStore() *fakeStore {
+	return &fakeStore{items: map[string]contents.Content{}, categories: map[string]contents.Category{}}
+}
 
-func (f *fakeStore) List(context.Context) ([]contents.Summary, error) {
+func (f *fakeStore) List(_ context.Context, filter contents.ListFilter) ([]contents.Summary, error) {
 	items := []contents.Summary{}
 	for _, c := range f.items {
-		items = append(items, contents.Summary{ID: c.ID, AuthorName: c.AuthorName, Title: c.Title, Excerpt: c.Body, UpdatedAt: c.UpdatedAt, CoverKey: c.CoverKey, CoverPositionX: c.CoverPositionX, CoverPositionY: c.CoverPositionY})
+		if filter.Category == contents.Uncategorized && c.CategoryID != "" {
+			continue
+		}
+		if filter.Category != "" && filter.Category != contents.Uncategorized && c.CategoryID != filter.Category {
+			continue
+		}
+		items = append(items, contents.Summary{
+			ID: c.ID, AuthorName: c.AuthorName, Title: c.Title, Excerpt: c.Body, UpdatedAt: c.UpdatedAt,
+			CoverKey: c.CoverKey, CoverPositionX: c.CoverPositionX, CoverPositionY: c.CoverPositionY,
+			CategoryID: c.CategoryID, CategoryName: c.CategoryName,
+		})
 	}
 	return items, nil
 }
@@ -44,8 +62,34 @@ func (f *fakeStore) Get(_ context.Context, id string) (contents.Content, error) 
 	return c, nil
 }
 
+func (f *fakeStore) applyCategory(c *contents.Content, in contents.Input) error {
+	id, set := in.Category.Specified()
+	if !set {
+		return nil
+	}
+	if id == "" {
+		c.CategoryID, c.CategoryName = "", ""
+		return nil
+	}
+	cat, ok := f.categories[id]
+	if !ok {
+		return contents.ErrCategoryNotFound
+	}
+	c.CategoryID, c.CategoryName = cat.ID, cat.Name
+	return nil
+}
+
 func (f *fakeStore) Create(_ context.Context, authorID string, in contents.Input) (contents.Content, error) {
-	c := contents.Content{ID: testContentID, AuthorID: authorID, AuthorName: "Horn", Title: in.Title, Body: in.Body, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	f.contentSeq++
+	id := testContentID
+	if f.contentSeq > 1 {
+		id = fmt.Sprintf("55555555-5555-5555-5555-%012d", f.contentSeq)
+	}
+	c := contents.Content{ID: id, AuthorID: authorID, AuthorName: "Horn", Title: in.Title, Body: in.Body, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	if err := f.applyCategory(&c, in); err != nil {
+		f.contentSeq--
+		return contents.Content{}, err
+	}
 	f.items[c.ID] = c
 	return c, nil
 }
@@ -56,6 +100,9 @@ func (f *fakeStore) Update(_ context.Context, id string, in contents.Input) (con
 		return contents.Content{}, contents.ErrNotFound
 	}
 	c.Title, c.Body = in.Title, in.Body
+	if err := f.applyCategory(&c, in); err != nil {
+		return contents.Content{}, err
+	}
 	f.items[id] = c
 	return c, nil
 }
@@ -86,6 +133,80 @@ func (f *fakeStore) Delete(_ context.Context, id string) error {
 		return contents.ErrNotFound
 	}
 	delete(f.items, id)
+	return nil
+}
+
+func (f *fakeStore) ListCategories(context.Context) ([]contents.Category, error) {
+	items := []contents.Category{}
+	for _, cat := range f.categories {
+		cat.ContentCount = 0
+		for _, item := range f.items {
+			if item.CategoryID == cat.ID {
+				cat.ContentCount++
+			}
+		}
+		items = append(items, cat)
+	}
+	return items, nil
+}
+
+func (f *fakeStore) CreateCategory(_ context.Context, name string) (contents.Category, error) {
+	for _, cat := range f.categories {
+		if strings.EqualFold(strings.TrimSpace(cat.Name), name) {
+			return contents.Category{}, contents.ErrCategoryExists
+		}
+	}
+	f.catSeq++
+	cat := contents.Category{
+		ID:        fmt.Sprintf("33333333-3333-3333-3333-%012d", f.catSeq),
+		Name:      name,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	f.categories[cat.ID] = cat
+	return cat, nil
+}
+
+func (f *fakeStore) RenameCategory(_ context.Context, id, name string) (contents.Category, error) {
+	cat, ok := f.categories[id]
+	if !ok {
+		return contents.Category{}, contents.ErrCategoryNotFound
+	}
+	for _, other := range f.categories {
+		if other.ID != id && strings.EqualFold(other.Name, name) {
+			return contents.Category{}, contents.ErrCategoryExists
+		}
+	}
+	cat.Name = name
+	cat.UpdatedAt = time.Now()
+	f.categories[id] = cat
+	for key, item := range f.items {
+		if item.CategoryID == id {
+			item.CategoryName = name
+			f.items[key] = item
+		}
+	}
+	for _, item := range f.items {
+		if item.CategoryID == id {
+			cat.ContentCount++
+		}
+	}
+	return cat, nil
+}
+
+// DeleteCategory mirrors ON DELETE CASCADE of the link only: the content stays
+// and its category is cleared.
+func (f *fakeStore) DeleteCategory(_ context.Context, id string) error {
+	if _, ok := f.categories[id]; !ok {
+		return contents.ErrCategoryNotFound
+	}
+	delete(f.categories, id)
+	for key, item := range f.items {
+		if item.CategoryID == id {
+			item.CategoryID, item.CategoryName = "", ""
+			f.items[key] = item
+		}
+	}
 	return nil
 }
 
@@ -219,5 +340,7 @@ func TestGatewaySecret(t *testing.T) {
 func TestNoDatabaseMeansNoAuthOrContentRoutes(t *testing.T) {
 	cl := newClient(t, Options{})
 	cl.do("GET", "/api/v1/contents", "", 404)
+	cl.do("GET", "/api/v1/categories", "", 404)
+	cl.do("POST", "/api/v1/categories", `{"name":"บทความ"}`, 404)
 	cl.do("POST", "/api/v1/auth/login", `{"email":"a","password":"b"}`, 404)
 }
