@@ -42,6 +42,28 @@ test('category routes are forwarded with the rest of /api', async () => {
   assert.equal(response.status, 204);
 });
 
+test('pin and order routes are forwarded with the rest of /api', async () => {
+  const request = new Request(
+    'https://foundry.example/api/v1/contents/22222222-2222-2222-2222-222222222222/order',
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"afterId":null}',
+    },
+  );
+  const response = await routeRequest(
+    request,
+    async (incoming) => {
+      assert.equal(incoming.url, request.url);
+      assert.equal(incoming.method, 'PATCH');
+      assert.equal(await incoming.text(), '{"afterId":null}');
+      return new Response(null, { status: 204 });
+    },
+    async () => assert.fail('order must not hit static assets'),
+  );
+  assert.equal(response.status, 204);
+});
+
 test('unknown pages retain the asset service 404, including /api-like paths', async () => {
   for (const path of ['/missing/', '/apiary/']) {
     const response = await routeRequest(
