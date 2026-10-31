@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { BookOpen, Clapperboard, Flame, LogOut, Menu, PenLine } from 'lucide-react';
+import { BookOpen, Clapperboard, Flame, LogOut, Menu, PenLine, Trash2 } from 'lucide-react';
 import { retrySession, setSignedOut, useSession } from '@/features/auth/session';
 import { logout } from '@/lib/api';
 
@@ -11,6 +11,7 @@ const navigation = [
   { href: '/videos/', label: 'รายการทั้งหมด', icon: Clapperboard },
   { href: '/contents/', label: 'คลังเนื้อหา', icon: BookOpen },
   { href: '/contents/editor/', label: 'เขียนเนื้อหา', icon: PenLine },
+  { href: '/trash/', label: 'ถังขยะ', icon: Trash2 },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

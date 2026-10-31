@@ -71,7 +71,7 @@ export function VideoAttachments({ contentId }: { contentId: string }) {
   }
 
   async function remove(media: Media) {
-    if (!window.confirm(`ลบวิดีโอ "${media.filename}"?`)) return;
+    if (!window.confirm(`ลบวิดีโอ "${media.filename}" ถาวร? กู้คืนไม่ได้`)) return;
     try {
       await deleteMedia(media.id);
       setItems((current) => current?.filter((item) => item.id !== media.id) ?? null);

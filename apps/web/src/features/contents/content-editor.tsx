@@ -86,7 +86,7 @@ function Editor({ id }: { id: string | null }) {
   }
 
   async function remove() {
-    if (!id || !window.confirm('ลบเนื้อหานี้ออกจากคลัง?')) return;
+    if (!id || !window.confirm('ย้ายเนื้อหานี้ไปถังขยะ? กู้คืนได้จากเมนูถังขยะ')) return;
     try {
       await deleteContent(id);
       router.replace('/contents/');

@@ -87,6 +87,40 @@ export function deleteContent(id: string): Promise<void> {
   return request<void>(`/contents/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+// Trashed is a deleted content: restore it, or delete it for good (its row, cover
+// and videos are removed from Neon and R2). Nothing is purged automatically.
+export type Trashed = {
+  id: string;
+  authorName: string;
+  title: string;
+  excerpt: string;
+  videoCount: number;
+  deletedAt: string;
+  coverUrl?: string;
+  coverPositionX: number;
+  coverPositionY: number;
+};
+
+export async function listTrash(signal?: AbortSignal): Promise<Trashed[]> {
+  const data = await request<{ items: Trashed[] }>('/trash', { signal });
+  return data.items;
+}
+
+export function restoreContent(id: string): Promise<void> {
+  return request<void>(`/trash/${encodeURIComponent(id)}/restore`, {
+    method: 'POST',
+    body: '{}',
+  });
+}
+
+export function purgeContent(id: string): Promise<void> {
+  return request<void>(`/trash/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function emptyTrash(): Promise<void> {
+  return request<void>('/trash', { method: 'DELETE' });
+}
+
 export type Media = {
   id: string;
   contentId: string;
