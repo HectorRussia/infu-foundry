@@ -1,4 +1,5 @@
 # AGENTS.md
 
-กติกาสำหรับ AI agents ทุกตัว (Codex, Claude และอื่น ๆ) อยู่ที่ [CLAUDE.md](CLAUDE.md) ไฟล์เดียว
-อ่านและทำตามไฟล์นั้น — แก้กติกาที่ CLAUDE.md เท่านั้นเพื่อไม่ให้สองไฟล์ขัดกัน
+กติกาสำหรับ AI agents ทุกตัว (Codex, Claude และอื่น ๆ) เริ่มที่ [CLAUDE.md](CLAUDE.md)
+CLAUDE.md เป็นสารบัญ รายละเอียดแยกตามหัวข้ออยู่ใน [.cursor/rules/](.cursor/rules/)
+แก้กติกาในไฟล์ `.mdc` ที่ตรงเรื่อง แล้วให้สารบัญใน CLAUDE.md ชี้ถูกไฟล์

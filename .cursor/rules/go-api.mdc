@@ -1,0 +1,14 @@
+---
+description: Go API pitfalls for local restart, GORM raw queries, and R2 presigned uploads.
+globs: apps/api/**/*.go
+alwaysApply: false
+---
+
+# Go API
+
+Process layout, auth, and logging: [docs/architecture.md](../../docs/architecture.md). When a restart is safe relative to a migration: [database-migrations.mdc](database-migrations.mdc).
+
+- Go does not hot-reload. After editing it, restart `pnpm dev:api` (or stop and start `pnpm dev`). Until then the site reports เชื่อมต่อไม่ได้ or the API 404s. Next.js reloads on its own. If the new code reads a column or table from a migration that is not applied yet, do not restart first. The order is in [database-migrations.mdc](database-migrations.mdc).
+- GORM `Raw` and `Exec` expand a `[]byte` into a list of numbers. Pass a hex string and use `decode(?, 'hex')` in the SQL.
+- Do not `Scan` into a struct that embeds another struct. The embedded fields come back empty. Use a flat row struct.
+- Presigned R2 PUTs set the AWS SDK checksum to "when required". A newer SDK otherwise signs a checksum header the browser does not send. The setting lives in `apps/api/internal/media/r2.go`.

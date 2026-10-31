@@ -1,5 +1,12 @@
 # Validation — 25 October 2026
 
+## Cursor project rules
+
+- Moved the detailed agent procedures out of `CLAUDE.md` into `.cursor/rules/` (one `.mdc` file per topic). `CLAUDE.md` is now an index; `AGENTS.md` points at it and at that directory
+- Rebased onto `main` at `7a5ff2c` so the CI workflow and this rules index both stay. The GitHub Actions section below is unchanged
+- `pnpm check` passed on Node.js 24.22.2 after that rebase: web typegen, ESLint, and `tsc`; gateway tests 5/5; `go vet` and Go tests. `pnpm build` passed: static export, Go binaries, Worker dry-run. No application code changed
+- Not verified: Cursor attaching each rule from `alwaysApply` or `globs` in a live chat. No production Neon, no browser click-through, no deploy
+
 ## GitHub Actions: job `check`
 
 - Workflow `.github/workflows/ci.yml` (ชื่อ `CI`) ทำงานเมื่อ `pull_request` ทุก base และ `push` ขึ้น `main`

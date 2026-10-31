@@ -1,0 +1,15 @@
+---
+description: Dark mobile-first Tailwind UI for the static Next.js app, including Thai copy and non-drag fallbacks.
+globs: apps/web/**/*.tsx, apps/web/**/*.css
+alwaysApply: false
+---
+
+# Frontend
+
+Routes and layout: [docs/architecture.md](../../docs/architecture.md) and the screen list in [README.md](../../README.md). This Next.js release is not the one in older training data. Read [apps/web/AGENTS.md](../../apps/web/AGENTS.md) and `node_modules/next/dist/docs/` before using an API you are not sure about.
+
+- Dark and mobile-first. Use the tokens in `apps/web/src/app/globals.css` (`bg-canvas`, `bg-surface`, `bg-elevated`, `text-ink`, `text-muted`, `border-edge`, `bg-brand`). Do not add a dashboard or a bottom navigation bar.
+- Inputs and textareas are at least 16px (`text-base` or larger) so a phone does not zoom on focus. Tappable controls are at least `min-h-12`.
+- UI copy is Thai and uses the words already on the screens. Match existing labels such as คลังเนื้อหา, เขียนเนื้อหา, บันทึก, ถังขยะ, and กำลังโหลดเนื้อหา…. Do not invent a second name for the same action.
+- A drag gesture needs a non-drag fallback that a keyboard and a screen reader can use. Cover positioning is the pattern: arrow keys, plus explicit save and cancel, not drag alone.
+- The web app is a static export. There are no dynamic route segments. An existing content is `/contents/editor/?id=`. Each route still has its own HTML so refresh and a direct open work (trailing slash).

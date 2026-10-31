@@ -1,0 +1,35 @@
+---
+description: Goose SQL migrations, when Neon may be touched, and applying a migration before the API that reads it merges.
+globs: apps/api/migrations/**/*.sql, apps/api/cmd/migrate/**/*.go, apps/api/internal/**/*.go
+alwaysApply: false
+---
+
+# Database migrations
+
+Connection setup and direct vs pooled URLs: [apps/api/migrations/README.md](../../apps/api/migrations/README.md). Render does not run migrations and deploys the API when `apps/api/**` reaches `main`: [docs/deployment.md](../../docs/deployment.md).
+
+## Approval
+
+Show the SQL and wait. Do not run `pnpm db:up`, `pnpm db:down`, `pnpm db:create-user`, or any other SQL on Neon until the user has seen that SQL and approved it. `pnpm db:create` only writes a file. `pnpm db:status` does not apply migrations, but once SQL files exist Goose may create its version table even for status.
+
+## Shape of a migration
+
+- Create it with `pnpm db:create <name>` from the repo root. Keep the generated timestamp. It must sort after every migration already in the branch, including one on a parent PR you stacked on.
+- Do not edit a migration that has already been applied on Neon. Add another file.
+- Every file has a `-- +goose Down` that reverses Up: drop only what Up added, in reverse dependency order.
+- Keep Up additive and safe while the current API is still serving. New tables, or new columns that are nullable or `NOT NULL` with a default, are the expected shape. Do not rewrite or delete existing content rows to change the schema.
+- Create accounts with `pnpm db:create-user`, never inside a migration.
+
+## Apply before the API reads the new shape
+
+If the API in a PR reads tables or columns the migration adds, run `pnpm db:up` on production Neon before merging. Merging `apps/api/**` to `main` deploys that API to Render immediately, and Render will not migrate. Shipping the queries first takes the library down.
+
+Use the same order locally. Do not restart `pnpm dev:api` on code that reads the new columns until `db:up` has run. Restarting early already broke the library once (`cover_key`); the rows were fine and production was untouched. Tell the user not to restart early.
+
+A migration that exists only on a pull request is not on production. Say that in the PR. Do not describe it as applied.
+
+## Proving the SQL
+
+Fake-store tests do not run SQL. After approval, exercise the change against Neon with a temporary API on another port (for example 8099). Do not point the user's running dev API at the new queries first.
+
+Local and production share one Neon database, so they share the R2 bucket `infu-media-prod`. Split a Neon branch and a bucket together, or not at all. See architecture and deployment.
