@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Film, Trash2, Upload, X } from 'lucide-react';
+import { useConfirm } from '@/components/confirm-dialog';
 import { DownloadLink } from '@/features/videos/download-link';
 import {
   APIError,
@@ -20,6 +21,7 @@ function formatSize(bytes: number) {
 }
 
 export function VideoAttachments({ contentId }: { contentId: string }) {
+  const confirm = useConfirm();
   const [items, setItems] = useState<Media[] | null>(null);
   const [message, setMessage] = useState('');
   const [upload, setUpload] = useState<{ name: string; progress: number } | null>(null);
@@ -71,14 +73,21 @@ export function VideoAttachments({ contentId }: { contentId: string }) {
   }
 
   async function remove(media: Media) {
-    if (!window.confirm(`ลบวิดีโอ "${media.filename}" ถาวร? กู้คืนไม่ได้`)) return;
-    try {
-      await deleteMedia(media.id);
-      setItems((current) => current?.filter((item) => item.id !== media.id) ?? null);
-      setMessage('ลบวิดีโอแล้ว');
-    } catch {
-      setMessage('ลบวิดีโอไม่สำเร็จ ลองอีกครั้ง');
-    }
+    await confirm({
+      title: 'ลบวิดีโอ',
+      message: `ลบวิดีโอ "${media.filename}" ถาวร? กู้คืนไม่ได้`,
+      confirmLabel: 'ลบวิดีโอ',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await deleteMedia(media.id);
+          setItems((current) => current?.filter((item) => item.id !== media.id) ?? null);
+          setMessage('ลบวิดีโอแล้ว');
+        } catch {
+          setMessage('ลบวิดีโอไม่สำเร็จ ลองอีกครั้ง');
+        }
+      },
+    });
   }
 
   return (

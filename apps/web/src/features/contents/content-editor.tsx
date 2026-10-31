@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Check, Clock, Copy, PenLine, Save, Trash2 } from 'lucide-react';
+import { useConfirm } from '@/components/confirm-dialog';
 import {
   APIError,
   createCategory,
@@ -26,6 +27,7 @@ export function ContentEditor() {
 
 function Editor({ id }: { id: string | null }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -120,13 +122,20 @@ function Editor({ id }: { id: string | null }) {
   }
 
   async function remove() {
-    if (!id || !window.confirm('ย้ายเนื้อหานี้ไปถังขยะ? กู้คืนได้จากเมนูถังขยะ')) return;
-    try {
-      await deleteContent(id);
-      router.replace('/contents/');
-    } catch {
-      setFeedback('ลบไม่สำเร็จ ลองอีกครั้ง');
-    }
+    if (!id) return;
+    await confirm({
+      title: 'ลบเนื้อหา',
+      message: 'ย้ายเนื้อหานี้ไปถังขยะ? กู้คืนได้จากเมนูถังขยะ',
+      confirmLabel: 'ลบเนื้อหา',
+      onConfirm: async () => {
+        try {
+          await deleteContent(id);
+          router.replace('/contents/');
+        } catch {
+          setFeedback('ลบไม่สำเร็จ ลองอีกครั้ง');
+        }
+      },
+    });
   }
 
   async function addCategory() {

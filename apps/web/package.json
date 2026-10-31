@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build && node ../../scripts/normalize-static-export.mjs",
-    "check": "next typegen && eslint . && tsc --noEmit && node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test src/features/contents/library-order.test.ts"
+    "check": "next typegen && eslint . && tsc --noEmit && node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test src/features/contents/library-order.test.ts src/components/confirm-request.test.ts"
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-thai": "5.3.0",
