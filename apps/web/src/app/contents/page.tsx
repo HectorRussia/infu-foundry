@@ -12,7 +12,7 @@ export default function ContentsPage() {
         <h1 className="text-2xl font-semibold">คลังเนื้อหา</h1>
         <Link
           href="/contents/editor/"
-          className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-canvas hover:bg-[#ffa383]"
+          className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-canvas hover:bg-brand-hover"
         >
           <Plus size={18} />
           เขียนเนื้อหา

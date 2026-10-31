@@ -197,7 +197,7 @@ function Editor({ id }: { id: string | null }) {
     <button
       type="submit"
       disabled={!dirty || empty || saving}
-      className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-canvas transition-colors hover:bg-[#ffa383] disabled:opacity-40"
+      className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-canvas transition-colors hover:bg-brand-hover disabled:opacity-40"
     >
       <Save size={18} />
       {saving ? 'กำลังบันทึก…' : 'บันทึกเนื้อหา'}

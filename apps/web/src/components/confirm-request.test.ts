@@ -11,8 +11,9 @@ import {
   canDismiss,
   closeDelayMs,
   confirmButtonLabel,
-  enqueue,
+  beginRequest,
   initialFocusTarget,
+  nativeDialogCalls,
   requestFromAlert,
   requestFromConfirm,
   settleQueue,
@@ -84,31 +85,42 @@ test('motion is skipped when the user prefers reduced motion', () => {
   assert.equal(closeDelayMs(true), 0);
 });
 
-test('a second request waits until the open one settles', () => {
+test('a second request while one is open does not stack', () => {
   const first = { id: 'a' };
-  const second = { id: 'b' };
-  let state: { active: { id: string } | null; waiting: { id: string }[] } = {
-    active: null,
-    waiting: [],
-  };
-  state = enqueue(state, first);
-  state = enqueue(state, second);
-  assert.equal(state.active, first);
-  assert.deepEqual(state.waiting, [second]);
-  state = settleQueue(state);
-  assert.equal(state.active, second);
-  assert.deepEqual(state.waiting, []);
-  state = settleQueue(state);
-  assert.equal(state.active, null);
-  assert.deepEqual(state.waiting, []);
+  const opened = beginRequest({ active: null, waiting: [] }, first);
+  assert.deepEqual(opened, { active: first, waiting: [] });
+  assert.equal(beginRequest(opened!, { id: 'b' }), null);
+  assert.equal(opened!.active, first);
+  assert.deepEqual(opened!.waiting, []);
+  assert.deepEqual(settleQueue(opened!), { active: null, waiting: [] });
 });
 
-test('web src does not call window.alert, window.confirm, or window.prompt', () => {
+test('native dialog scan flags bare alert and prompt, not confirm()', () => {
+  const source = [
+    "window.alert('a')",
+    "window.confirm('b')",
+    "window.prompt('c')",
+    "alert('d')",
+    "prompt('e')",
+    'await confirm({ title: "ลบ" })',
+    'useAlert()',
+    'role="alert"',
+  ].join('\n');
+  assert.deepEqual(nativeDialogCalls(source), [
+    'window.alert(',
+    'window.confirm(',
+    'window.prompt(',
+    'alert(',
+    'prompt(',
+  ]);
+});
+
+test('web src does not call native alert, confirm, or prompt', () => {
   const src = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-  const pattern = /window\.(alert|confirm|prompt)\s*\(/;
-  const hits = walk(src).flatMap((file) =>
-    pattern.test(readFileSync(file, 'utf8')) ? [path.relative(src, file)] : [],
-  );
+  const hits = walk(src).flatMap((file) => {
+    const calls = nativeDialogCalls(readFileSync(file, 'utf8'));
+    return calls.length ? [`${path.relative(src, file)}: ${calls.join(', ')}`] : [];
+  });
   assert.deepEqual(hits, []);
 });
 
