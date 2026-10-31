@@ -109,6 +109,7 @@ workflow ไม่มี secret และไม่รันคำสั่งท
 Token ของ workflow อ่านโค้ดได้อย่างเดียว (`contents: read`) action ถูก pin ด้วย commit SHA
 run ที่ถูกแทนที่บน PR หรือ branch เดียวกันถูกยกเลิก
 Dependabot ตรวจ github-actions, npm และ Go module ทุกสัปดาห์
+version update ของแต่ละ ecosystem ถูกรวมเป็น PR เดียว; security update ยังแยกตามแพ็กเกจ
 
 ## ข้อตกลง MVP รอบถัดไป
 
