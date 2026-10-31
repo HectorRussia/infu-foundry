@@ -1,5 +1,16 @@
 # Validation — 25 October 2026
 
+## Trash: restore or permanently delete contents
+
+- Scope chosen by the owner: contents only (deleting a single video stays immediate and permanent), no automatic purge, older soft-deleted contents appear in the trash
+- No schema change. API: GET `/trash`, POST `/trash/{id}/restore`, DELETE `/trash/{id}`, DELETE `/trash` (empty); purge deletes the cover and every video object in R2 first, then deletes media and content rows in one transaction, only for rows already in the trash
+- Also fixed: the local dev CORS did not allow PATCH, so saving a cover position from localhost:3000 would fail (production is same-origin and was unaffected)
+- Go tests: session required, list hides keys, restore needs JSON and 404s when not in the trash, live or invalid ids are never purged, an R2 failure keeps the content in the trash (500), purge removes cover and videos, emptying purges everything, routes absent without R2
+- Web: "ถังขยะ" page in the menu with restore / delete permanently / empty trash; content delete now says it moves to the trash; video delete warns it is permanent
+- `pnpm check` and the web static build pass
+- Live end-to-end after the owner's approval (temporary API :8099, Neon + `infu-media-prod`), 17/17 passed: trash lists 12 older deleted contents, a test content with cover and video goes to the trash first with `videoCount` 1, restore brings it back, a live content cannot be purged (404) and its objects survive, purge → 204 with cover and video 404 in R2, the 12 older items untouched, content 404, second purge 404. Only the test content was purged; `DELETE /trash` was not called
+- Not yet: browser check, production deploy
+
 ## Cover crop position and cover download
 
 - Migration `add_content_cover_position`: `cover_position_x/y` smallint, default 50, CHECK 0–100. Applied on Neon after review (2026-10-31); existing covers stay centred

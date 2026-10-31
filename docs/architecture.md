@@ -70,7 +70,10 @@ Login ผิด 10 ครั้งใน 15 นาทีต่ออีเมล
 วิดีโอ: ไฟล์อยู่ใน Cloudflare R2, ตาราง `media` เก็บ `object_key` (`media/<uuid>.<ext>`) ไม่เก็บ URL
 Browser อัปโหลดตรงเข้า R2 ด้วย presigned PUT (15 นาที, ลงนาม Content-Type และ Content-Length) แล้วเรียก
 `/media/{id}/complete` ให้ Go HEAD ตรวจขนาดก่อนตั้ง `ready`; ดูด้วย presigned GET อายุ 1 ชั่วโมง (รองรับ Range)
-ไฟล์ไม่ผ่าน Go/Render; ลบวิดีโอ = ลบ object ก่อนแล้ว soft delete แถว; ลบเนื้อหาไม่ลบวิดีโอ
+ไฟล์ไม่ผ่าน Go/Render; ลบวิดีโอ = ลบ object ก่อนแล้ว soft delete แถว; ลบเนื้อหา = soft delete (เข้าถังขยะ) ไม่ลบวิดีโอ/ภาพปก
+ถังขยะ (`/trash`): เฉพาะเนื้อหา (ตัดสินใจ 2026-10-31) — กู้คืน = `deleted_at = NULL`; ลบถาวร = ลบ object ใน R2 ทุกตัว (ภาพปก + วิดีโอทุกสถานะ) ก่อน
+ถ้าลบไม่ได้แถวยังอยู่ในถังให้ลองใหม่ จากนั้น transaction `DELETE media` + `DELETE contents` (เฉพาะแถวที่ `deleted_at IS NOT NULL` เท่านั้น เนื้อหาที่ยังใช้อยู่ลบถาวรไม่ได้)
+ไม่มีการล้างอัตโนมัติ (Render ฟรีไม่มี cron และผู้ใช้เลือกล้างเอง); route ถังขยะเปิดเฉพาะเมื่อมี R2
 ภาพปก: `contents.cover_key` (nullable, CHECK `covers/%`), object `covers/<content id>/<random>.<ext>` ชื่อใหม่ทุกครั้งกัน cache;
 flow POST (presigned PUT, JPG/PNG/WebP ≤ 10 MB) → PUT key (Go ตรวจว่า key เป็นของเนื้อหานั้นและ object เป็นภาพจริง) → ลบภาพเก่า; DELETE ลบทั้ง key และ object
 ตำแหน่งครอป: `cover_position_x/y` (smallint 0–100, default 50, ใช้เป็น CSS `object-position`) ตั้งด้วย PATCH; ภาพใหม่เริ่มที่กึ่งกลางเสมอ
