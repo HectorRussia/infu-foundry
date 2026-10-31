@@ -1,5 +1,13 @@
 # Validation — 31 October 2026
 
+## Confirm dialog follow-up
+
+- The source scan also rejects bare `alert(` and `prompt(`. `confirm(` stays allowed because that is `useConfirm()`. `window.alert` / `window.confirm` / `window.prompt` stay rejected
+- Brand hover is the `bg-brand-hover` token (`--color-brand-hover: #ffa383`) on the confirm button, the editor save button, and “เขียนเนื้อหา”. The hard-coded `#ffa383` class is gone
+- A second confirm or notice while one is already open is dropped, so a double-click in the same turn cannot queue another dialog. `beginRequest` covers that
+- Web tests 12/12 with the library order tests, including the scan and the dropped second request. `pnpm check` and `pnpm build` passed on Node.js 24.22.2
+- Not verified: production Neon, a browser click-through, a physical phone, and any deploy. Copy and layout are unchanged
+
 ## In-app confirm dialog
 
 - Every `window.confirm` in `apps/web` now goes through one promise-based `useConfirm()`. `useAlert()` is the notice equivalent. There was no `window.alert` or `window.prompt` in the app. The dialog is a native `<dialog>` opened with `showModal()` (`role="alertdialog"`, labelled, focus moves in and is trapped, Esc and backdrop cancel unless an action is in flight, focus returns to the trigger, body scroll locked). Mobile is a full-width bottom sheet; buttons are `min-h-12`. Irreversible actions use the danger style and focus “ยกเลิก” first. Moving a content to the trash stays a reversible confirm (brand button, focus on “ลบเนื้อหา”) because the existing copy says it can be restored from ถังขยะ
