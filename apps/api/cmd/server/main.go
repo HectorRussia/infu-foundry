@@ -41,11 +41,13 @@ func run(logger *slog.Logger) error {
 		}
 		defer db.Close()
 		logger.Info("database connected")
-		opts.Contents = contents.NewStore(db.ORM)
+		contentStore := contents.NewStore(db.ORM)
+		opts.Contents = contentStore
 		opts.Auth = auth.NewStore(db.ORM)
 		if cfg.R2.Complete() {
 			opts.Media = media.NewStore(db.ORM)
 			opts.MediaStorage = media.NewR2(cfg.R2)
+			opts.Trash = contentStore
 			logger.Info("video uploads enabled", "bucket", cfg.R2.Bucket)
 		} else {
 			logger.Info("R2 not configured; video uploads disabled")

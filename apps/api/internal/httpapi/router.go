@@ -22,6 +22,8 @@ type Options struct {
 	// Media and MediaStorage enable video uploads; absent without R2 credentials.
 	Media        MediaStore
 	MediaStorage MediaStorage
+	// Trash needs MediaStorage too: purging a content deletes its R2 objects.
+	Trash TrashStore
 }
 
 func New(logger *slog.Logger, opts Options) *fiber.App {
@@ -66,7 +68,7 @@ func New(logger *slog.Logger, opts Options) *fiber.App {
 		})
 		app.Use(cors.New(cors.Config{
 			AllowOrigins:     []string{"http://localhost:3000"},
-			AllowMethods:     []string{"GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowMethods:     []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 			AllowHeaders:     []string{"Content-Type"},
 			AllowCredentials: true,
 		}))
@@ -81,6 +83,9 @@ func New(logger *slog.Logger, opts Options) *fiber.App {
 			registerContents(api, opts.Contents, opts.MediaStorage, requireJSON, requireSession(opts.Auth))
 			if opts.MediaStorage != nil {
 				registerCovers(api, opts.Contents, opts.MediaStorage, logger, requireJSON, requireSession(opts.Auth))
+			}
+			if opts.Trash != nil && opts.MediaStorage != nil {
+				registerTrash(api, opts.Trash, opts.MediaStorage, logger, requireJSON, requireSession(opts.Auth))
 			}
 		}
 		if opts.Media != nil && opts.MediaStorage != nil {
