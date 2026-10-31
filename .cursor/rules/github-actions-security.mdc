@@ -1,0 +1,19 @@
+---
+description: Security constraints for GitHub Actions workflows and Dependabot config. No secrets, read-only token, actions pinned to SHAs.
+globs: .github/**/*.yml, .github/**/*.yaml
+alwaysApply: false
+---
+
+# GitHub Actions security
+
+Which files must stay untracked is in [git-workflow.mdc](git-workflow.mdc). How CI fits deploy is in [docs/deployment.md](../../docs/deployment.md). Runner versions and the command list are in [docs/architecture.md](../../docs/architecture.md).
+
+`.github/workflows/ci.yml` is on `main`. The workflow name is `CI`. It runs on every pull request and on pushes to `main`. There is one job, named `check`, which is the status check `protect-main` requires. Checkout sets `persist-credentials: false`. The job installs with `pnpm install --frozen-lockfile`, then runs `pnpm check` and `pnpm build`. It uses Node.js 24, pnpm from `packageManager`, and the Go toolchain in `apps/api/go.mod`. It does not call Cloudflare, Neon, or R2, and it does not deploy. A newer run on the same pull request or branch cancels the older one. Do not rename the job without updating the ruleset.
+
+Every workflow:
+
+- Sets top-level `permissions: contents: read`. Do not grant `contents: write` or other scopes.
+- Pins every third-party action to a full commit SHA, with the release in a trailing comment (`actions/checkout@<40-char-sha> # v7.0.1`).
+- Sets `persist-credentials: false` on `actions/checkout`.
+- Does not use `pull_request_target`.
+- Does not contain secrets, does not echo env that could hold them, and does not need `DATABASE_URL`, the gateway secret, or R2 keys.

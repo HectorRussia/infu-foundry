@@ -78,8 +78,10 @@ apps/gateway/     Cloudflare Worker, Container lifecycle และ static asset 
 contracts/       OpenAPI ของ endpoint ที่ทำจริงแล้ว
 docs/            ข้อตกลงสถาปัตยกรรมและผลตรวจรับ
 scripts/         Node.js scripts สำหรับ Windows/macOS/Linux
+.github/         GitHub Actions (job `check`) และ Dependabot
+.cursor/rules/   กติกา Cursor แยกตามหัวข้อ (สารบัญอยู่ที่ CLAUDE.md)
 render.yaml      Render Blueprint ของ Go API
-CLAUDE.md        กติกาการทำงานสำหรับ AI agents (AGENTS.md ชี้มาที่ไฟล์นี้)
+CLAUDE.md        สารบัญกติกาสำหรับ AI agents (AGENTS.md ชี้มาที่ไฟล์นี้)
 ```
 
 อ่านรายละเอียดและข้อตกลงรอบถัดไปใน [Architecture](docs/architecture.md)
@@ -169,6 +171,11 @@ pnpm check
 pnpm build
 ```
 
+GitHub Actions รันสองคำสั่งนี้บน pull request ทุกฐานและบน push ขึ้น `main`
+workflow ชื่อ `CI` (`.github/workflows/ci.yml`) มี job เดียวชื่อ `check`
+ตั้ง branch protection ของ `main` ให้ต้องผ่าน status check ชื่อ **`check`**
+CI ไม่ใช้ secret และไม่เชื่อม Cloudflare, Neon หรือ R2
+
 จากนั้นตรวจหน้าจอ desktop/mobile และ health API ที่ `/api/v1/health` (ไม่มีการ์ดสถานะ API บนหน้าเว็บแล้ว)
 Go tests ตรวจ HTTP boundary: health, unknown path, unsupported method และ CORS ของ local development
 ผลการตรวจในสภาพแวดล้อมเริ่มต้นอยู่ใน [Validation](docs/validation.md)
@@ -182,5 +189,6 @@ Go tests ตรวจ HTTP boundary: health, unknown path, unsupported method �
 - [GORM PostgreSQL](https://gorm.io/docs/connecting_to_the_database.html)
 - [Goose](https://pressly.github.io/goose/)
 
-Repository: [HectorRussia/infu-foundry](https://github.com/HectorRussia/infu-foundry) ใช้ branch `main`
+Repository: [HectorRussia/infu-foundry](https://github.com/HectorRussia/infu-foundry) งานเข้า branch `main` ผ่าน pull request
 แบ่ง commit ตามส่วนงานด้วย Conventional Commits เช่น `feat(api)`, `feat(web)`, `feat(gateway)` และ `docs`
+กติกาสำหรับ agent อยู่ใน [CLAUDE.md](CLAUDE.md) และ [.cursor/rules/](.cursor/rules/)

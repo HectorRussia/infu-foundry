@@ -1,0 +1,16 @@
+---
+description: Reviewer checklist before an infu-foundry PR is merged. Use when reviewing a diff or writing the PR description.
+alwaysApply: false
+---
+
+# Code review
+
+GitHub will not wait for an approving review (required approvals are 0). Walk this list in the team chat before merge. When an item fails, the linked rule is what to follow.
+
+- Existing rows still work. A content that has no value in a new column, and a library list that does not use the new field, still loads and saves. Prefer a default or NULL so old rows stay valid. If the new API reads a new table or column, production Neon already has the migration, or the PR is blocked on that — see [database-migrations.mdc](database-migrations.mdc).
+- Deletes do not take user content with them. Deleting a category, pin, or ordering row must not delete or trash contents. See [data-model.mdc](data-model.mdc).
+- The migration has a Down that reverses Up, is additive and safe on the live database, and its timestamp sorts after migrations already on the branch. It has not been edited in place if Neon already applied it.
+- Security: content routes stay behind the session cookie; the diff has no secrets or `.env` files; workflows match [github-actions-security.mdc](github-actions-security.mdc); logs do not include cookies, request bodies, or presigned URLs.
+- Tests: `pnpm check` and `pnpm build` passed. API behavior has Go tests. If the SQL was not run on Neon, the PR says so. A fake store does not prove the query.
+- Docs and [contracts/openapi.yaml](../../contracts/openapi.yaml) match the change, including a new block at the top of `docs/validation.md`.
+- The PR states what was not verified. When production Neon, a browser click-through, or a deploy did not happen, it says that in those words. See [git-workflow.mdc](git-workflow.mdc).

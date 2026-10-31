@@ -22,6 +22,23 @@
 - Go tests: session required, name validation, duplicate names (case-insensitive), rename, omit vs null vs assign, a rejected category does not change the content, filters, and deleting a category leaves the content uncategorized. Gateway tests 6/6, including `/categories` forwarded like other `/api` routes
 - `pnpm check` passed (ESLint, TypeScript, gateway tests, `go vet`, Go tests) and `pnpm build` passed (static export of `/contents` and `/contents/editor`, Go server and migrate binaries, Worker dry-run). This environment ran Node 22.23.4, so pnpm warned that the repo asks for Node >= 24; the commands still exited 0
 - Not yet: migration on the live Neon database (needs the owner’s approval before `pnpm db:up`), a browser click-through, and production. Do not merge until `db:up` has run, or the library and editor break on the Render deploy
+- After merging `origin/main` (CI workflow and project rules) into this branch: `pnpm check` and `pnpm build` passed again on Node 22.23.4 (pnpm warned that the repo asks for Node >= 24). The merge changed docs only; no migration or application code
+
+## Cursor project rules
+
+- Moved the detailed agent procedures out of `CLAUDE.md` into `.cursor/rules/` (one `.mdc` file per topic). `CLAUDE.md` is now an index; `AGENTS.md` points at it and at that directory
+- Rebased onto `main` at `7a5ff2c` so the CI workflow and this rules index both stay. The GitHub Actions section below is unchanged
+- `pnpm check` passed on Node.js 24.22.2 after that rebase: web typegen, ESLint, and `tsc`; gateway tests 5/5; `go vet` and Go tests. `pnpm build` passed: static export, Go binaries, Worker dry-run. No application code changed
+- Not verified: Cursor attaching each rule from `alwaysApply` or `globs` in a live chat. No production Neon, no browser click-through, no deploy
+
+## GitHub Actions: job `check`
+
+- Workflow `.github/workflows/ci.yml` (ชื่อ `CI`) ทำงานเมื่อ `pull_request` ทุก base และ `push` ขึ้น `main`
+- มี job เดียวชื่อ `check` นี่คือ status check ที่ branch protection ของ `main` ต้อง require
+- รัน `pnpm install --frozen-lockfile`, `pnpm check` และ `pnpm build` ด้วย Node 24, pnpm จาก `packageManager` (10.32.1) และ Go toolchain ใน `apps/api/go.mod` โดยไม่มี secret
+- ไม่ได้รัน `db:*`, deploy จริง, preview ที่ต้องใช้ Docker หรือ Wrangler login, และการเชื่อม Neon/R2
+- Dependabot รายสัปดาห์สำหรับ github-actions, npm และ gomod รวม version update ของแต่ละ ecosystem เป็น PR เดียว ยังไม่ได้เปิด PR จาก Dependabot
+- ผลบน GitHub Actions: job `check` ผ่านเมื่อ 31 October 2026 บน [run 41229008153](https://github.com/HectorRussia/infu-foundry/actions/runs/41229008153) (commit `289107c`) ชื่อ status check คือ `check`
 
 ## Trash: restore or permanently delete contents
 
