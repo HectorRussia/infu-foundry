@@ -15,7 +15,7 @@ import {
   canDismiss,
   closeDelayMs,
   confirmButtonLabel,
-  enqueue,
+  beginRequest,
   initialFocusTarget,
   requestFromAlert,
   requestFromConfirm,
@@ -45,7 +45,7 @@ type Task = {
 
 type DialogApi = {
   confirm: (options: ConfirmOptions) => Promise<boolean>;
-  alert: (options: AlertInput) => Promise<void>;
+  notice: (options: AlertInput) => Promise<void>;
 };
 
 const ConfirmContext = createContext<DialogApi | null>(null);
@@ -61,7 +61,7 @@ export function useConfirm() {
 }
 
 export function useAlert() {
-  return useDialogApi().alert;
+  return useDialogApi().notice;
 }
 
 function activeTrigger(): HTMLElement | null {
@@ -78,8 +78,11 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const queueRef = useRef(queue);
 
   const push = useCallback((task: Task) => {
-    queueRef.current = enqueue(queueRef.current, task);
-    setQueue(queueRef.current);
+    const next = beginRequest(queueRef.current, task);
+    if (!next) return false;
+    queueRef.current = next;
+    setQueue(next);
+    return true;
   }, []);
 
   const settle = useCallback((task: Task, result: 'confirm' | 'cancel', error?: unknown) => {
@@ -101,32 +104,45 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     () => ({
       confirm(options) {
         const trigger = activeTrigger();
-        return new Promise<boolean>((resolve, reject) => {
-          push({
-            id: ++nextId,
-            request: requestFromConfirm(options),
-            onConfirm: options.onConfirm,
-            trigger,
-            finish(result, error) {
-              if (error) reject(error);
-              else resolve(result === 'confirm');
-            },
-          });
+        let resolve!: (value: boolean) => void;
+        let reject!: (reason: unknown) => void;
+        const promise = new Promise<boolean>((res, rej) => {
+          resolve = res;
+          reject = rej;
         });
+        // Queue state is updated synchronously, so a second click in this frame does not stack.
+        const accepted = push({
+          id: ++nextId,
+          request: requestFromConfirm(options),
+          onConfirm: options.onConfirm,
+          trigger,
+          finish(result, error) {
+            if (error) reject(error);
+            else resolve(result === 'confirm');
+          },
+        });
+        if (!accepted) resolve(false);
+        return promise;
       },
-      alert(options) {
+      notice(options) {
         const trigger = activeTrigger();
-        return new Promise<void>((resolve, reject) => {
-          push({
-            id: ++nextId,
-            request: requestFromAlert(options),
-            trigger,
-            finish(_result, error) {
-              if (error) reject(error);
-              else resolve();
-            },
-          });
+        let resolve!: () => void;
+        let reject!: (reason: unknown) => void;
+        const promise = new Promise<void>((res, rej) => {
+          resolve = res;
+          reject = rej;
         });
+        const accepted = push({
+          id: ++nextId,
+          request: requestFromAlert(options),
+          trigger,
+          finish(_result, error) {
+            if (error) reject(error);
+            else resolve();
+          },
+        });
+        if (!accepted) resolve();
+        return promise;
       },
     }),
     [push],
@@ -323,7 +339,7 @@ function ConfirmDialog({
               className={
                 request.danger
                   ? `${button} border border-red-400/40 bg-red-400/15 text-red-300 hover:bg-red-400/25`
-                  : `${button} bg-brand text-canvas hover:bg-[#ffa383]`
+                  : `${button} bg-brand text-canvas hover:bg-brand-hover`
               }
             >
               {confirmButtonLabel(request, busy ? 'pending' : 'open')}

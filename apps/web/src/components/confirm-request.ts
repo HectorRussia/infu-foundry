@@ -79,9 +79,17 @@ export function closeDelayMs(reducedMotion: boolean): number {
   return reducedMotion ? 0 : CLOSE_MS;
 }
 
-export function enqueue<T>(state: QueueState<T>, item: T): QueueState<T> {
-  if (state.active) return { active: state.active, waiting: [...state.waiting, item] };
+/** One dialog at a time. A second call in the same turn (a double-click) is dropped. */
+export function beginRequest<T>(state: QueueState<T>, item: T): QueueState<T> | null {
+  if (state.active) return null;
   return { active: item, waiting: state.waiting };
+}
+
+// Bare confirm( is useConfirm(), so it is not treated as a native dialog.
+const NATIVE_DIALOG = /window\.(?:alert|confirm|prompt)\s*\(|(?<![.\w])(?:alert|prompt)\s*\(/g;
+
+export function nativeDialogCalls(source: string): string[] {
+  return [...source.matchAll(NATIVE_DIALOG)].map((match) => match[0]);
 }
 
 export function settleQueue<T>(state: QueueState<T>): QueueState<T> {
