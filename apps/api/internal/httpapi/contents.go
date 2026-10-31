@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"regexp"
 
@@ -20,6 +22,8 @@ type ContentStore interface {
 	Delete(ctx context.Context, id string) error
 	SetCover(ctx context.Context, id, key string) (string, error)
 	SetCoverPosition(ctx context.Context, id string, x, y int) error
+	SetPinned(ctx context.Context, id string, pinned bool) error
+	Move(ctx context.Context, id string, afterID *string) error
 }
 
 // coverURL signs a cover key for viewing; without storage (R2 off) covers are hidden.
@@ -78,6 +82,8 @@ func registerContents(router fiber.Router, store ContentStore, storage MediaStor
 			return fiber.ErrNotFound
 		case errors.Is(err, contents.ErrCategoryNotFound):
 			// 422, not 404: a missing category must not look like a missing content.
+			return fiber.ErrUnprocessableEntity
+		case errors.Is(err, contents.ErrInvalid):
 			return fiber.ErrUnprocessableEntity
 		default:
 			return err
@@ -144,6 +150,55 @@ func registerContents(router fiber.Router, store ContentStore, storage MediaStor
 			return err
 		}
 		if err := store.Delete(c.Context(), id); err != nil {
+			return storeError(err)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+	// Pin and order are shared by every account. Both answer 204; the client
+	// reloads the list, which is already sorted pinned-first.
+	group.Patch("/:id/pin", func(c fiber.Ctx) error {
+		id, err := contentID(c)
+		if err != nil {
+			return err
+		}
+		var in struct {
+			Pinned *bool `json:"pinned"`
+		}
+		if err := c.Bind().JSON(&in); err != nil {
+			return fiber.ErrBadRequest
+		}
+		if in.Pinned == nil {
+			return fiber.ErrUnprocessableEntity
+		}
+		if err := store.SetPinned(c.Context(), id, *in.Pinned); err != nil {
+			return storeError(err)
+		}
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+	group.Patch("/:id/order", func(c fiber.Ctx) error {
+		id, err := contentID(c)
+		if err != nil {
+			return err
+		}
+		var in struct {
+			AfterID json.RawMessage `json:"afterId"`
+		}
+		if err := c.Bind().JSON(&in); err != nil {
+			return fiber.ErrBadRequest
+		}
+		// Omitted and JSON null both mean "top of this content's pin group".
+		afterRaw := bytes.TrimSpace(in.AfterID)
+		if len(afterRaw) == 0 || string(afterRaw) == "null" {
+			if err := store.Move(c.Context(), id, nil); err != nil {
+				return storeError(err)
+			}
+			return c.SendStatus(fiber.StatusNoContent)
+		}
+		var after string
+		if err := json.Unmarshal(afterRaw, &after); err != nil || !uuidPattern.MatchString(after) {
+			return fiber.ErrUnprocessableEntity
+		}
+		if err := store.Move(c.Context(), id, &after); err != nil {
 			return storeError(err)
 		}
 		return c.SendStatus(fiber.StatusNoContent)

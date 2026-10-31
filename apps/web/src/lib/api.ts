@@ -19,6 +19,8 @@ export type ContentSummary = {
   // Absent when the content has no category.
   categoryId?: string;
   categoryName?: string;
+  // Shared pin. Pinned contents are listed before the others.
+  pinned: boolean;
 };
 
 export type Content = {
@@ -31,6 +33,7 @@ export type Content = {
   updatedAt: string;
   categoryId?: string;
   categoryName?: string;
+  pinned: boolean;
 } & Partial<Cover> &
   Pick<Cover, 'coverPositionX' | 'coverPositionY'>;
 
@@ -122,6 +125,24 @@ export function saveContent(id: string | null, input: ContentInput): Promise<Con
 
 export function deleteContent(id: string): Promise<void> {
   return request<void>(`/contents/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+// setContentPinned is shared by every account. Pinning moves the content to the
+// top of the pinned group; unpinning moves it to the top of the unpinned group.
+export function setContentPinned(id: string, pinned: boolean): Promise<void> {
+  return request<void>(`/contents/${encodeURIComponent(id)}/pin`, {
+    method: 'PATCH',
+    body: JSON.stringify({ pinned }),
+  });
+}
+
+// moveContent places a content immediately after afterId in the same pin group.
+// null puts it at the top of that group.
+export function moveContent(id: string, afterId: string | null): Promise<void> {
+  return request<void>(`/contents/${encodeURIComponent(id)}/order`, {
+    method: 'PATCH',
+    body: JSON.stringify({ afterId }),
+  });
 }
 
 // Trashed is a deleted content: restore it, or delete it for good (its row, cover

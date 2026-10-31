@@ -55,6 +55,8 @@ Render ยัง deploy อัตโนมัติเมื่อมี commit 
    ลำดับสำหรับ agent อยู่ใน [.cursor/rules/database-migrations.mdc](../.cursor/rules/database-migrations.mdc)
    หมวดหมู่ (`add_categories`) เป็นตารางใหม่ที่ API join ทันที ต้อง `db:up` ก่อนที่ Render จะได้โค้ดนี้
    ตารางเปล่าเพิ่มเข้าไปขณะ API เก่ายังรันอยู่ได้ แต่ถ้า deploy ก่อน migration คลังเนื้อหาและ editor จะโหลดไม่ได้
+   ลำดับคลัง (`add_content_order`, หลัง `add_categories`) เพิ่ม `pinned` กับ `sort_key` ที่ API อ่านทันที ต้อง `db:up` ก่อนโค้ดนี้ขึ้น Render เช่นกัน
+   คอลัมน์เพิ่มขณะ API เก่ายังรันอยู่ได้ (trigger จัด sort_key ให้แถวใหม่) แต่ถ้า deploy ก่อน migration คลังและ editor จะโหลดไม่ได้
 
 ## ขั้นตอนช่วง MVP (Render + Cloudflare)
 

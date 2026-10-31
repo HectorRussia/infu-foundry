@@ -5,6 +5,7 @@ info:
   description: |
     Shared content library for signed-in users, with videos stored in Cloudflare R2.
     A content belongs to at most one shared category.
+    Pins and manual order are shared by every account.
     Every route except /health and /auth/login needs the `infu_session` cookie.
     Writes must be JSON (other content types get 415). Through the Cloudflare Worker the
     gateway adds X-Gateway-Secret; direct calls to the Go host without it get 404.
@@ -88,7 +89,13 @@ paths:
   /contents:
     get:
       operationId: listContents
-      summary: Non-deleted contents, most recently updated first (max 200)
+      summary: Non-deleted contents, pinned first, then manual order (max 200)
+      description: |
+        Shared by every account. Pinned contents come first. Within each group
+        the order is the saved manual order, not last-edited time. Editing a
+        content does not move it. A category filter keeps that relative order
+        and only drops other rows. New contents are inserted at the top of the
+        unpinned group.
       parameters:
         - name: category
           in: query
@@ -116,6 +123,9 @@ paths:
     post:
       operationId: createContent
       summary: Create content authored by the signed-in user
+      description: |
+        The new content is unpinned and placed at the top of the unpinned group,
+        immediately below any pinned contents.
       requestBody: { $ref: '#/components/requestBodies/ContentInput' }
       responses:
         '201':
@@ -154,6 +164,60 @@ paths:
       responses:
         '204': { description: Deleted }
         '404': { description: Missing or already deleted }
+  /contents/{id}/pin:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    patch:
+      operationId: setContentPinned
+      summary: Pin or unpin a content for every account
+      description: |
+        Pinned contents stay above unpinned ones. Pinning moves the content to
+        the top of the pinned group. Unpinning moves it to the top of the
+        unpinned group. The flag is shared, not per user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pinned]
+              properties:
+                pinned: { type: boolean }
+      responses:
+        '204': { description: Updated, including when the pin was already in that state }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Missing, deleted or not a UUID }
+        '422': { description: pinned is missing }
+  /contents/{id}/order:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    patch:
+      operationId: moveContent
+      summary: Move a content within its pin group
+      description: |
+        `afterId` null places the content at the top of its own pin group.
+        A UUID places it immediately after that live content. The neighbour
+        must be in the same pin group; pinning is a separate call. Normally
+        only the moved row's sort key changes. When no integer fits between
+        the neighbours, that pin group is rebalanced and then the row is placed.
+        Category filters do not have their own order.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [afterId]
+              properties:
+                afterId:
+                  oneOf:
+                    - { type: string, format: uuid }
+                    - { type: 'null' }
+      responses:
+        '204': { description: Moved, or already in that place }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Missing, deleted or not a UUID }
+        '422': { description: afterId is not a live content in the same pin group }
 
   /categories:
     get:
@@ -257,6 +321,10 @@ paths:
     post:
       operationId: restoreContent
       summary: Move a deleted content back to the library (send `{}` as the body)
+      description: |
+        The pin is kept. The content returns to its previous place when that
+        sort key is free among live contents in the same pin group. If the key
+        is already taken, it is placed at the top of that group instead.
       responses:
         '204': { description: Restored }
         '404': { description: Not in the trash }
@@ -504,7 +572,17 @@ components:
     ContentSummary:
       type: object
       required:
-        [id, authorName, videoCount, coverPositionX, coverPositionY, title, excerpt, updatedAt]
+        [
+          id,
+          authorName,
+          videoCount,
+          coverPositionX,
+          coverPositionY,
+          title,
+          excerpt,
+          updatedAt,
+          pinned,
+        ]
       properties:
         id: { type: string, format: uuid }
         authorName: { type: string }
@@ -535,6 +613,11 @@ components:
         categoryId:
           { type: string, format: uuid, description: Absent when the content has no category }
         categoryName: { type: string, description: Absent when the content has no category }
+        pinned:
+          {
+            type: boolean,
+            description: Shared pin. Pinned contents are listed before unpinned ones,
+          }
     TrashedContent:
       type: object
       required:
@@ -562,6 +645,7 @@ components:
           updatedAt,
           coverPositionX,
           coverPositionY,
+          pinned,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -600,6 +684,11 @@ components:
         categoryId:
           { type: string, format: uuid, description: Absent when the content has no category }
         categoryName: { type: string, description: Absent when the content has no category }
+        pinned:
+          {
+            type: boolean,
+            description: Shared pin. Pinned contents are listed before unpinned ones,
+          }
     Category:
       type: object
       required: [id, name, contentCount, createdAt, updatedAt]

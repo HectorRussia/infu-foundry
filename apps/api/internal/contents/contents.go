@@ -3,6 +3,8 @@
 // A content belongs to at most one shared category, stored in content_categories
 // rather than on contents, so a later many-to-many tag model does not rewrite
 // the contents table.
+// Pin and manual order are shared too. Pinned rows stay above the rest, and
+// sort_key orders each group. Editing a content does not change that order.
 package contents
 
 import (
@@ -46,6 +48,10 @@ type Content struct {
 	// live so a rename shows up without rewriting contents.
 	CategoryID   string `json:"categoryId,omitempty"`
 	CategoryName string `json:"categoryName,omitempty"`
+	// Pinned contents are listed before the others. The flag is shared.
+	Pinned bool `json:"pinned"`
+	// SortKey is the gap-based library position. It is not part of the API.
+	SortKey int64 `json:"-"`
 }
 
 type Summary struct {
@@ -62,6 +68,9 @@ type Summary struct {
 	CoverPositionY int    `json:"coverPositionY"`
 	CategoryID     string `json:"categoryId,omitempty"`
 	CategoryName   string `json:"categoryName,omitempty"`
+	Pinned         bool   `json:"pinned"`
+	// SortKey orders the library. Callers that already have SQL ORDER BY can leave it zero.
+	SortKey int64 `json:"-"`
 }
 
 // Uncategorized is the list filter for contents with no category.
@@ -106,7 +115,8 @@ func NewStore(db *gorm.DB) *Store { return &Store{db: db} }
 const selectContent = `
 SELECT c.id, c.author_id, u.display_name AS author_name, c.title, c.body, c.created_at, c.updated_at,
   coalesce(c.cover_key, '') AS cover_key, c.cover_position_x, c.cover_position_y,
-  coalesce(CAST(cat.id AS text), '') AS category_id, coalesce(cat.name, '') AS category_name
+  coalesce(CAST(cat.id AS text), '') AS category_id, coalesce(cat.name, '') AS category_name,
+  c.pinned, c.sort_key
 FROM contents c
 JOIN users u ON u.id = c.author_id
 LEFT JOIN content_categories cc ON cc.content_id = c.id
@@ -121,6 +131,7 @@ func (s *Store) List(ctx context.Context, filter ListFilter) ([]Summary, error) 
 SELECT c.id, u.display_name AS author_name, c.title, left(c.body, ?) AS excerpt, c.updated_at,
   coalesce(c.cover_key, '') AS cover_key, c.cover_position_x, c.cover_position_y,
   coalesce(CAST(cat.id AS text), '') AS category_id, coalesce(cat.name, '') AS category_name,
+  c.pinned, c.sort_key,
   (SELECT count(*) FROM media m
    WHERE m.content_id = c.id AND m.status = 'ready' AND m.deleted_at IS NULL) AS video_count
 FROM contents c
@@ -137,8 +148,10 @@ WHERE c.deleted_at IS NULL`
 		query += ` AND cat.id = ?`
 		args = append(args, filter.Category)
 	}
+	// A category filter only removes rows. Pinned still comes first, and the
+	// saved order of whatever remains is unchanged.
 	query += `
-ORDER BY c.updated_at DESC
+ORDER BY c.pinned DESC, c.sort_key ASC, c.id ASC
 LIMIT ?`
 	args = append(args, listLimit)
 	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&items).Error
@@ -205,9 +218,24 @@ func ValidCoverPosition(x, y int) bool {
 func (s *Store) Create(ctx context.Context, authorID string, in Input) (Content, error) {
 	var id string
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// New content lands at the top of the unpinned group, under the pins.
+		if err := lockLibraryOrder(tx); err != nil {
+			return err
+		}
+		slots, err := groupSlots(tx, false)
+		if err != nil {
+			return err
+		}
+		key, updates, err := KeyAtTop(slots)
+		if err != nil {
+			return err
+		}
+		if err := applySortKeys(tx, slots, updates); err != nil {
+			return err
+		}
 		if err := tx.Raw(
-			`INSERT INTO contents (author_id, title, body) VALUES (?, ?, ?) RETURNING id`,
-			authorID, in.Title, in.Body,
+			`INSERT INTO contents (author_id, title, body, pinned, sort_key) VALUES (?, ?, ?, false, ?) RETURNING id`,
+			authorID, in.Title, in.Body, key,
 		).Scan(&id).Error; err != nil {
 			return err
 		}
