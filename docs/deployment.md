@@ -36,10 +36,23 @@ Browser → Cloudflare Worker ─┬─ Static Assets
 ตัวเลขราคา/โควตาในเอกสารนี้มาจากความรู้ ณ วันที่ตัดสินใจ ยังไม่ได้ตรวจกับหน้า pricing ล่าสุด
 ต้องตรวจอีกครั้งก่อน deploy จริง
 
+## CI ก่อนรวมเข้า main
+
+Workflow `CI` รัน job `check` บน pull request และบน push ขึ้น `main` รายละเอียดอยู่ใน [Architecture](architecture.md)
+ก่อนเปิด branch protection ให้ require status check ชื่อ **`check`**
+(Settings → Branches หรือ Rules → Require status checks → ค้น `check`)
+
+CI ไม่ deploy Worker, ไม่สั่ง Render และไม่รัน migration
+Render ยัง deploy อัตโนมัติเมื่อมี commit บน `main` ที่แตะ `apps/api/**` หลัง merge แล้วเท่านั้น
+การเปิด required check ไม่ได้แทนการอนุมัติ migration บน Neon
+
 ## เงื่อนไขก่อน deploy
 
 1. ~~มี authentication จริง~~ — ทำแล้ว: login + session cookie, content routes ต้อง login
 2. Neon มี migration ล่าสุด (`pnpm db:up` จากเครื่องด้วย direct URL) และบัญชีผู้ใช้จาก `pnpm db:create-user`
+   ถ้าโค้ดที่จะเข้า `main` อ่านตารางหรือคอลัมน์ของ migration นั้น ต้อง `db:up` ก่อน merge
+   Render deploy API ทันทีที่ `apps/api/**` เข้า `main` และไม่รัน migration ให้
+   ลำดับสำหรับ agent อยู่ใน [.cursor/rules/database-migrations.mdc](../.cursor/rules/database-migrations.mdc)
    หมวดหมู่ (`add_categories`) เป็นตารางใหม่ที่ API join ทันที ต้อง `db:up` ก่อนที่ Render จะได้โค้ดนี้
    ตารางเปล่าเพิ่มเข้าไปขณะ API เก่ายังรันอยู่ได้ แต่ถ้า deploy ก่อน migration คลังเนื้อหาและ editor จะโหลดไม่ได้
 

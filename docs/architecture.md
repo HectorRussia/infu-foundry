@@ -93,6 +93,27 @@ Worker คืน 503 แบบไม่ cache ถ้า start/health/forward ล
 Static assets ใช้ 404-page handling ไม่ fallback ทุก route ไปหน้าแรก
 ข้อมูลและ session ในอนาคตต้องเก็บภายนอก Container เพราะ lifecycle ไม่ใช่ durable storage ของแอป
 
+## CI
+
+Pull request (ทุก base branch) และ push ขึ้น `main` รัน workflow `CI` ใน `.github/workflows/ci.yml`
+มี job เดียวชื่อ `check` — นี่คือชื่อ status check ที่ branch protection ของ `main` ต้อง require
+(ในหน้าตั้งค่าค้น `check` ชื่อนี้มาจาก job ไม่ใช่ชื่อไฟล์ workflow)
+
+Runner ติดตั้ง Node.js 24 (ตาม `engines`), pnpm 10.32.1 จากฟิลด์ `packageManager` ผ่าน `pnpm/action-setup`
+และ Go ตามบรรทัด `toolchain` ใน `apps/api/go.mod` (`go1.26.10`) ผ่าน `actions/setup-go`
+cache ของ pnpm store และ Go modules เปิดอยู่
+
+ลำดับคำสั่งคือ `pnpm install --frozen-lockfile` แล้ว `pnpm check`
+(ESLint, TypeScript, gateway tests, `go vet`, Go tests) แล้ว `pnpm build`
+(static export, Go binaries, `wrangler deploy --dry-run`)
+workflow ไม่มี secret และไม่รันคำสั่งที่ต้องใช้ Cloudflare, Neon หรือ R2
+(`db:*`, `deploy:cloudflare`, preview) CI ไม่ deploy
+
+Token ของ workflow อ่านโค้ดได้อย่างเดียว (`contents: read`) action ถูก pin ด้วย commit SHA
+run ที่ถูกแทนที่บน PR หรือ branch เดียวกันถูกยกเลิก
+Dependabot ตรวจ github-actions, npm และ Go module ทุกสัปดาห์
+version update ของแต่ละ ecosystem ถูกรวมเป็น PR เดียว; security update ยังแยกตามแพ็กเกจ
+
 ## ข้อตกลง MVP รอบถัดไป
 
 - ทีมเดียว คลังเนื้อหาร่วม ทุกบัญชีเห็นและแก้ไขรายการร่วมกัน

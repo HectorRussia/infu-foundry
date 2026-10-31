@@ -1,0 +1,17 @@
+---
+description: Shared library rules for contents, categories, ordering, and pins, and what a delete is allowed to remove.
+globs: apps/api/internal/contents/**/*.go, apps/api/migrations/**/*.sql, apps/web/src/features/contents/**/*.tsx, contracts/openapi.yaml
+alwaysApply: false
+---
+
+# Data model
+
+The schema narrative lives in [docs/architecture.md](../../docs/architecture.md). Do not invent a per-user library.
+
+- Contents are shared. Every account sees and edits the same rows. `author_id` records who wrote the content. It is not a visibility filter.
+- Categories are shared the same way, with no nesting. A content sits in at most one category, via `content_categories`, where `content_id` is the primary key. Do not add a category column on `contents`. No link row means uncategorized.
+- Those category tables come with the categories pull request. Until that migration is on `main` and applied, do not query `categories` or `content_categories` from code that ships on `main`.
+- Deleting a category may remove `content_categories` rows only. It must not delete, trash, or rewrite the content. Soft-deleting a content keeps the link, so restore still has the category. A permanent purge deletes the content row; the link goes with that row.
+- Ordering and pins are shared across accounts too, not stored per user. There is no pin table yet. Add one only as shared rows, in its own migration, with no `author_id` scope. Deleting a pin or an ordering row must not delete the content.
+- Trashing a content sets `deleted_at`. It does not delete the cover or video objects. Permanent purge from the trash deletes those R2 objects first, then the media and content rows, and only when the content is already in the trash. Deleting one video is immediate and does not trash the content.
+- Do not add `ON DELETE CASCADE` from `categories`, users, pins, or ordering tables onto `contents`. `contents.author_id` stays `ON DELETE RESTRICT`.
