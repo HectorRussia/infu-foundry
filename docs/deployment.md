@@ -36,6 +36,16 @@ Browser → Cloudflare Worker ─┬─ Static Assets
 ตัวเลขราคา/โควตาในเอกสารนี้มาจากความรู้ ณ วันที่ตัดสินใจ ยังไม่ได้ตรวจกับหน้า pricing ล่าสุด
 ต้องตรวจอีกครั้งก่อน deploy จริง
 
+## CI ก่อนรวมเข้า main
+
+Workflow `CI` รัน job `check` บน pull request และบน push ขึ้น `main` รายละเอียดอยู่ใน [Architecture](architecture.md)
+ก่อนเปิด branch protection ให้ require status check ชื่อ **`check`**
+(Settings → Branches หรือ Rules → Require status checks → ค้น `check`)
+
+CI ไม่ deploy Worker, ไม่สั่ง Render และไม่รัน migration
+Render ยัง deploy อัตโนมัติเมื่อมี commit บน `main` ที่แตะ `apps/api/**` หลัง merge แล้วเท่านั้น
+การเปิด required check ไม่ได้แทนการอนุมัติ migration บน Neon
+
 ## เงื่อนไขก่อน deploy
 
 1. ~~มี authentication จริง~~ — ทำแล้ว: login + session cookie, content routes ต้อง login
