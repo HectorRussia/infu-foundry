@@ -78,6 +78,7 @@ apps/gateway/     Cloudflare Worker, Container lifecycle และ static asset 
 contracts/       OpenAPI ของ endpoint ที่ทำจริงแล้ว
 docs/            ข้อตกลงสถาปัตยกรรมและผลตรวจรับ
 scripts/         Node.js scripts สำหรับ Windows/macOS/Linux
+.github/         GitHub Actions (job `check`) และ Dependabot
 render.yaml      Render Blueprint ของ Go API
 CLAUDE.md        กติกาการทำงานสำหรับ AI agents (AGENTS.md ชี้มาที่ไฟล์นี้)
 ```
@@ -168,6 +169,11 @@ Cloudflare Containers สำหรับ deploy จริงต้องใช�
 pnpm check
 pnpm build
 ```
+
+GitHub Actions รันสองคำสั่งนี้บน pull request ทุกฐานและบน push ขึ้น `main`
+workflow ชื่อ `CI` (`.github/workflows/ci.yml`) มี job เดียวชื่อ `check`
+ตั้ง branch protection ของ `main` ให้ต้องผ่าน status check ชื่อ **`check`**
+CI ไม่ใช้ secret และไม่เชื่อม Cloudflare, Neon หรือ R2
 
 จากนั้นตรวจหน้าจอ desktop/mobile และ health API ที่ `/api/v1/health` (ไม่มีการ์ดสถานะ API บนหน้าเว็บแล้ว)
 Go tests ตรวจ HTTP boundary: health, unknown path, unsupported method และ CORS ของ local development

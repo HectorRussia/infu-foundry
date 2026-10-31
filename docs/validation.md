@@ -1,5 +1,14 @@
 # Validation — 25 October 2026
 
+## GitHub Actions: job `check`
+
+- Workflow `.github/workflows/ci.yml` (ชื่อ `CI`) ทำงานเมื่อ `pull_request` ทุก base และ `push` ขึ้น `main`
+- มี job เดียวชื่อ `check` นี่คือ status check ที่ branch protection ของ `main` ต้อง require
+- รัน `pnpm install --frozen-lockfile`, `pnpm check` และ `pnpm build` ด้วย Node 24, pnpm จาก `packageManager` (10.32.1) และ Go toolchain ใน `apps/api/go.mod` โดยไม่มี secret
+- ไม่ได้รัน `db:*`, deploy จริง, preview ที่ต้องใช้ Docker หรือ Wrangler login, และการเชื่อม Neon/R2
+- Dependabot รายสัปดาห์สำหรับ github-actions, npm และ gomod รวม version update ของแต่ละ ecosystem เป็น PR เดียว ยังไม่ได้เปิด PR จาก Dependabot
+- ผลบน GitHub Actions: job `check` ผ่านเมื่อ 31 October 2026 บน [run 41229008153](https://github.com/HectorRussia/infu-foundry/actions/runs/41229008153) (commit `289107c`) ชื่อ status check คือ `check`
+
 ## Trash: restore or permanently delete contents
 
 - Scope chosen by the owner: contents only (deleting a single video stays immediate and permanent), no automatic purge, older soft-deleted contents appear in the trash
