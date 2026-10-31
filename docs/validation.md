@@ -1,5 +1,18 @@
 # Validation — 25 October 2026
 
+## Library pin and manual order
+
+- Shared by every account. `contents.pinned` plus gap-based `sort_key` (initial gap 65536). Pinned contents stay above unpinned ones. Ordering is inside each group. A category filter keeps that relative order and only hides other rows
+- New content is unpinned and lands at the top of the unpinned group, under the pins. Editing a title or body does not move it. One drag or arrow move updates only the moved row. The pin group is rewritten only when no integer fits between the neighbours. Writers take transaction advisory lock `20261031` (the same id as the insert trigger), so concurrent moves cannot take the same key. The lock is transaction-scoped and works on the Neon pooler
+- Migration `add_content_order` (`20261031193000`, after `add_categories`) backfills every row, including trash, in the previous last-edited order (`updated_at DESC, id`). Down drops the trigger, function, indexes, then the two columns. Existing live contents therefore keep today's library order. The previous API can still insert after the migration because the trigger fills `sort_key`. The new API must not start before `db:up`, or the library and editor fail on the new columns
+- Trash keeps the pin and the sort key. Restore puts the content back in that place when the key is free in its pin group; if a live row already has it, the content goes to the top of that group. Videos, covers and the editor are unchanged
+- API: PATCH `/contents/{id}/pin` `{pinned}`, PATCH `/contents/{id}/order` `{afterId}` (`null` = top of the same pin group). A neighbour in the other group is 422. List is `pinned DESC, sort_key ASC, id ASC`, max 200
+- Web: pin control, drag handle (pointer events, `touch-action: none`, works with a finger) and up/down buttons on each library card. Dragging stays inside the pin group. Thai labels match the rest of the library
+- Go tests cover placement (one-row moves, rebalance when the gap is 1, new keys at the top, filtered order, scratch keys that do not collide, concurrent moves under a mutex standing in for the advisory lock) and the HTTP routes (session, 422, 404, pin, unpin, move, category filter). Gateway tests 7/7, including PATCH `/contents/{id}/order`. Web order helpers 3/3
+- `pnpm check` passed (ESLint, TypeScript, the web order tests, gateway tests, `go vet`, Go tests) and `pnpm build` passed (static export, Go binaries, Worker dry-run). This environment ran Node 22.23.4, so pnpm warned that the repo asks for Node >= 24; the commands still exited 0
+- Browser, against a local mock API (not Neon): on a phone-width touch viewport, dragging หนึ่ง onto สอง reordered the unpinned group to สอง then หนึ่ง under the pinned card; pinning สอง moved it to the top of the pinned group; filtering เรื่อง hid สอง and kept สาม then หนึ่ง; clearing the filter restored สอง, สาม, หนึ่ง. Desktop showed the two pinned cards side by side. Arrow buttons at the ends of a group were disabled
+- Not yet: `db:up` on the live Neon database (needs the owner's approval; do not start the new API or push this API to Render before that), a physical phone, and production. This PR is stacked on the categories branch; merge categories first so `add_categories` is applied before `add_content_order`
+
 ## Categories
 
 - A content has at most one shared category, optional. The link lives in `content_categories` (`content_id` primary key) so a later many-to-many tag model does not rewrite `contents`. No nested categories
