@@ -16,6 +16,9 @@ export type ContentSummary = {
   title: string;
   excerpt: string;
   updatedAt: string;
+  // Absent when the content has no category.
+  categoryId?: string;
+  categoryName?: string;
 };
 
 export type Content = {
@@ -26,6 +29,8 @@ export type Content = {
   body: string;
   createdAt: string;
   updatedAt: string;
+  categoryId?: string;
+  categoryName?: string;
 } & Partial<Cover> &
   Pick<Cover, 'coverPositionX' | 'coverPositionY'>;
 
@@ -38,7 +43,15 @@ export type Cover = {
   coverPositionY: number;
 };
 
-export type ContentInput = { title: string; body: string };
+export type ContentInput = { title: string; body: string; categoryId?: string | null };
+
+export type Category = {
+  id: string;
+  name: string;
+  contentCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type User = { id: string; email: string; displayName: string };
 
@@ -65,9 +78,33 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
 
-export async function listContents(signal?: AbortSignal): Promise<ContentSummary[]> {
-  const data = await request<{ items: ContentSummary[] }>('/contents', { signal });
+export async function listContents(
+  signal?: AbortSignal,
+  category?: string,
+): Promise<ContentSummary[]> {
+  const query = category ? `?category=${encodeURIComponent(category)}` : '';
+  const data = await request<{ items: ContentSummary[] }>(`/contents${query}`, { signal });
   return data.items;
+}
+
+export async function listCategories(signal?: AbortSignal): Promise<Category[]> {
+  const data = await request<{ items: Category[] }>('/categories', { signal });
+  return data.items;
+}
+
+export function createCategory(name: string): Promise<Category> {
+  return request<Category>('/categories', { method: 'POST', body: JSON.stringify({ name }) });
+}
+
+export function renameCategory(id: string, name: string): Promise<Category> {
+  return request<Category>(`/categories/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function deleteCategory(id: string): Promise<void> {
+  return request<void>(`/categories/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 export function getContent(id: string, signal?: AbortSignal): Promise<Content> {
