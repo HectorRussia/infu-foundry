@@ -1,5 +1,8 @@
 // Package contents stores the shared content library: every signed-in user sees
 // every non-deleted content; author_id only records who wrote it.
+// A content belongs to at most one shared category, stored in content_categories
+// rather than on contents, so a later many-to-many tag model does not rewrite
+// the contents table.
 package contents
 
 import (
@@ -39,6 +42,10 @@ type Content struct {
 	CoverDownloadURL string `json:"coverDownloadUrl,omitempty"`
 	CoverPositionX   int    `json:"coverPositionX"`
 	CoverPositionY   int    `json:"coverPositionY"`
+	// CategoryID is empty when the content has no category. The name is joined
+	// live so a rename shows up without rewriting contents.
+	CategoryID   string `json:"categoryId,omitempty"`
+	CategoryName string `json:"categoryName,omitempty"`
 }
 
 type Summary struct {
@@ -51,13 +58,25 @@ type Summary struct {
 	CoverKey   string    `json:"-"`
 	CoverURL   string    `json:"coverUrl,omitempty"`
 	// CoverPositionX/Y are CSS object-position percentages for cropping the cover.
-	CoverPositionX int `json:"coverPositionX"`
-	CoverPositionY int `json:"coverPositionY"`
+	CoverPositionX int    `json:"coverPositionX"`
+	CoverPositionY int    `json:"coverPositionY"`
+	CategoryID     string `json:"categoryId,omitempty"`
+	CategoryName   string `json:"categoryName,omitempty"`
+}
+
+// Uncategorized is the list filter for contents with no category.
+const Uncategorized = "uncategorized"
+
+// ListFilter selects which contents List returns. An empty Category is every
+// live content. Uncategorized is those with no link. Anything else is a category id.
+type ListFilter struct {
+	Category string
 }
 
 type Input struct {
-	Title string `json:"title"`
-	Body  string `json:"body"`
+	Title    string     `json:"title"`
+	Body     string     `json:"body"`
+	Category CategoryID `json:"categoryId"`
 }
 
 // Validate trims the title and rejects empty or oversized content.
@@ -72,6 +91,11 @@ func (in *Input) Validate() error {
 	if !utf8.ValidString(in.Title) || !utf8.ValidString(in.Body) || strings.ContainsRune(in.Body, 0) {
 		return ErrInvalid
 	}
+	// Omitted and JSON null are valid. Anything else must be a category UUID;
+	// whether that category exists is checked when the row is written.
+	if in.Category.Set && !in.Category.Null && !categoryIDPattern.MatchString(in.Category.Value) {
+		return ErrInvalid
+	}
 	return nil
 }
 
@@ -81,21 +105,43 @@ func NewStore(db *gorm.DB) *Store { return &Store{db: db} }
 
 const selectContent = `
 SELECT c.id, c.author_id, u.display_name AS author_name, c.title, c.body, c.created_at, c.updated_at,
-  coalesce(c.cover_key, '') AS cover_key, c.cover_position_x, c.cover_position_y
-FROM contents c JOIN users u ON u.id = c.author_id
+  coalesce(c.cover_key, '') AS cover_key, c.cover_position_x, c.cover_position_y,
+  coalesce(CAST(cat.id AS text), '') AS category_id, coalesce(cat.name, '') AS category_name
+FROM contents c
+JOIN users u ON u.id = c.author_id
+LEFT JOIN content_categories cc ON cc.content_id = c.id
+LEFT JOIN categories cat ON cat.id = cc.category_id
 WHERE c.id = ? AND c.deleted_at IS NULL`
 
-func (s *Store) List(ctx context.Context) ([]Summary, error) {
+func (s *Store) List(ctx context.Context, filter ListFilter) ([]Summary, error) {
 	items := []Summary{}
-	err := s.db.WithContext(ctx).Raw(`
+	// LEFT JOIN so contents with no category stay in the list. content_id is the
+	// primary key of the link, so the join never duplicates a content.
+	query := `
 SELECT c.id, u.display_name AS author_name, c.title, left(c.body, ?) AS excerpt, c.updated_at,
   coalesce(c.cover_key, '') AS cover_key, c.cover_position_x, c.cover_position_y,
+  coalesce(CAST(cat.id AS text), '') AS category_id, coalesce(cat.name, '') AS category_name,
   (SELECT count(*) FROM media m
    WHERE m.content_id = c.id AND m.status = 'ready' AND m.deleted_at IS NULL) AS video_count
-FROM contents c JOIN users u ON u.id = c.author_id
-WHERE c.deleted_at IS NULL
+FROM contents c
+JOIN users u ON u.id = c.author_id
+LEFT JOIN content_categories cc ON cc.content_id = c.id
+LEFT JOIN categories cat ON cat.id = cc.category_id
+WHERE c.deleted_at IS NULL`
+	args := []any{excerptLength}
+	switch filter.Category {
+	case "":
+	case Uncategorized:
+		query += ` AND cc.content_id IS NULL`
+	default:
+		query += ` AND cat.id = ?`
+		args = append(args, filter.Category)
+	}
+	query += `
 ORDER BY c.updated_at DESC
-LIMIT ?`, excerptLength, listLimit).Scan(&items).Error
+LIMIT ?`
+	args = append(args, listLimit)
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&items).Error
 	return items, err
 }
 
@@ -158,10 +204,19 @@ func ValidCoverPosition(x, y int) bool {
 
 func (s *Store) Create(ctx context.Context, authorID string, in Input) (Content, error) {
 	var id string
-	err := s.db.WithContext(ctx).Raw(
-		`INSERT INTO contents (author_id, title, body) VALUES (?, ?, ?) RETURNING id`,
-		authorID, in.Title, in.Body,
-	).Scan(&id).Error
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Raw(
+			`INSERT INTO contents (author_id, title, body) VALUES (?, ?, ?) RETURNING id`,
+			authorID, in.Title, in.Body,
+		).Scan(&id).Error; err != nil {
+			return err
+		}
+		categoryID, set := in.Category.Specified()
+		if !set || categoryID == "" {
+			return nil
+		}
+		return assignCategory(tx, id, categoryID)
+	})
 	if err != nil {
 		return Content{}, err
 	}
@@ -169,15 +224,27 @@ func (s *Store) Create(ctx context.Context, authorID string, in Input) (Content,
 }
 
 func (s *Store) Update(ctx context.Context, id string, in Input) (Content, error) {
-	result := s.db.WithContext(ctx).Exec(
-		`UPDATE contents SET title = ?, body = ?, updated_at = now() WHERE id = ? AND deleted_at IS NULL`,
-		in.Title, in.Body, id,
-	)
-	if result.Error != nil {
-		return Content{}, result.Error
-	}
-	if result.RowsAffected == 0 {
-		return Content{}, ErrNotFound
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Exec(
+			`UPDATE contents SET title = ?, body = ?, updated_at = now() WHERE id = ? AND deleted_at IS NULL`,
+			in.Title, in.Body, id,
+		)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrNotFound
+		}
+		// An omitted categoryId leaves the link alone, including contents that
+		// have never had a category.
+		categoryID, set := in.Category.Specified()
+		if !set {
+			return nil
+		}
+		return assignCategory(tx, id, categoryID)
+	})
+	if err != nil {
+		return Content{}, err
 	}
 	return s.Get(ctx, id)
 }

@@ -1,9 +1,10 @@
 openapi: 3.1.0
 info:
   title: Infu Foundry API
-  version: 0.8.0
+  version: 0.9.0
   description: |
     Shared content library for signed-in users, with videos stored in Cloudflare R2.
+    A content belongs to at most one shared category.
     Every route except /health and /auth/login needs the `infu_session` cookie.
     Writes must be JSON (other content types get 415). Through the Cloudflare Worker the
     gateway adds X-Gateway-Secret; direct calls to the Go host without it get 404.
@@ -87,7 +88,17 @@ paths:
   /contents:
     get:
       operationId: listContents
-      summary: All non-deleted contents, most recently updated first (max 200)
+      summary: Non-deleted contents, most recently updated first (max 200)
+      parameters:
+        - name: category
+          in: query
+          required: false
+          description: |
+            Omit to list every content. `uncategorized` lists contents with no
+            category. A category UUID lists that folder. An unknown UUID returns
+            an empty list.
+          schema:
+            type: string
       responses:
         '200':
           description: Content summaries
@@ -101,6 +112,7 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/ContentSummary' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { description: category is not a UUID and not `uncategorized` }
     post:
       operationId: createContent
       summary: Create content authored by the signed-in user
@@ -142,6 +154,79 @@ paths:
       responses:
         '204': { description: Deleted }
         '404': { description: Missing or already deleted }
+
+  /categories:
+    get:
+      operationId: listCategories
+      summary: Shared categories, ordered by name, with a count of live contents
+      responses:
+        '200':
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Category' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      operationId: createCategory
+      summary: Create a shared category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 80, description: Trimmed; unique ignoring case }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Category' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { description: Another category already uses this name }
+        '422': { description: Blank name, or longer than 80 characters }
+  /categories/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    patch:
+      operationId: renameCategory
+      summary: Rename a category; contents stay in it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 80, description: Trimmed; unique ignoring case }
+      responses:
+        '200':
+          description: Renamed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Category' }
+        '404': { description: Missing or not a UUID }
+        '409': { description: Another category already uses this name }
+        '422': { description: Blank name, or longer than 80 characters }
+    delete:
+      operationId: deleteCategory
+      summary: Delete a category without deleting or trashing its contents
+      description: |
+        Contents that were in the category become uncategorized. Their rows,
+        covers and videos stay as they are. Trashing a content keeps the link,
+        so restoring it brings the category back.
+      responses:
+        '204': { description: Deleted; its contents are now uncategorized }
+        '404': { description: Missing or not a UUID }
 
   /trash:
     get:
@@ -249,8 +334,22 @@ paths:
               type: object
               required: [x, y]
               properties:
-                x: { type: integer, minimum: 0, maximum: 100, description: CSS object-position % (0 left, 100 right) }
-                y: { type: integer, minimum: 0, maximum: 100, description: CSS object-position % (0 top, 100 bottom) }
+                x:
+                  {
+                    type: integer,
+                    minimum: 0,
+                    maximum: 100,
+                    description: CSS object-position % (0 left,
+                    100 right),
+                  }
+                y:
+                  {
+                    type: integer,
+                    minimum: 0,
+                    maximum: 100,
+                    description: CSS object-position % (0 top,
+                    100 bottom),
+                  }
       responses:
         '200':
           description: Position saved
@@ -382,6 +481,15 @@ components:
             properties:
               title: { type: string, maxLength: 300, description: Trimmed }
               body: { type: string }
+              categoryId:
+                description: |
+                  Omit on update to leave the category unchanged. Create stays
+                  uncategorized when the field is omitted. null clears it. A UUID
+                  assigns that shared category (422 when it does not exist).
+                oneOf:
+                  - type: string
+                    format: uuid
+                  - type: 'null'
   responses:
     Unauthorized:
       description: No valid session
@@ -395,7 +503,8 @@ components:
         displayName: { type: string }
     ContentSummary:
       type: object
-      required: [id, authorName, videoCount, coverPositionX, coverPositionY, title, excerpt, updatedAt]
+      required:
+        [id, authorName, videoCount, coverPositionX, coverPositionY, title, excerpt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         authorName: { type: string }
@@ -406,11 +515,26 @@ components:
             format: uri,
             description: Presigned cover image URL (~1 hour); absent without a cover,
           }
-        coverPositionX: { type: integer, minimum: 0, maximum: 100, description: CSS object-position x % (default 50) }
-        coverPositionY: { type: integer, minimum: 0, maximum: 100, description: CSS object-position y % (default 50) }
+        coverPositionX:
+          {
+            type: integer,
+            minimum: 0,
+            maximum: 100,
+            description: CSS object-position x % (default 50),
+          }
+        coverPositionY:
+          {
+            type: integer,
+            minimum: 0,
+            maximum: 100,
+            description: CSS object-position y % (default 50),
+          }
         title: { type: string }
         excerpt: { type: string, description: First 160 characters of the body }
         updatedAt: { type: string, format: date-time }
+        categoryId:
+          { type: string, format: uuid, description: Absent when the content has no category }
+        categoryName: { type: string, description: Absent when the content has no category }
     TrashedContent:
       type: object
       required:
@@ -427,7 +551,18 @@ components:
         coverPositionY: { type: integer }
     Content:
       type: object
-      required: [id, authorId, authorName, title, body, createdAt, updatedAt, coverPositionX, coverPositionY]
+      required:
+        [
+          id,
+          authorId,
+          authorName,
+          title,
+          body,
+          createdAt,
+          updatedAt,
+          coverPositionX,
+          coverPositionY,
+        ]
       properties:
         id: { type: string, format: uuid }
         authorId: { type: string, format: uuid }
@@ -448,8 +583,36 @@ components:
             format: uri,
             description: Same as coverUrl but saved as a file named after the title; absent without a cover,
           }
-        coverPositionX: { type: integer, minimum: 0, maximum: 100, description: CSS object-position x % (default 50) }
-        coverPositionY: { type: integer, minimum: 0, maximum: 100, description: CSS object-position y % (default 50) }
+        coverPositionX:
+          {
+            type: integer,
+            minimum: 0,
+            maximum: 100,
+            description: CSS object-position x % (default 50),
+          }
+        coverPositionY:
+          {
+            type: integer,
+            minimum: 0,
+            maximum: 100,
+            description: CSS object-position y % (default 50),
+          }
+        categoryId:
+          { type: string, format: uuid, description: Absent when the content has no category }
+        categoryName: { type: string, description: Absent when the content has no category }
+    Category:
+      type: object
+      required: [id, name, contentCount, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        contentCount:
+          {
+            type: integer,
+            description: Live contents in this category; trashed contents are not counted,
+          }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
     Cover:
       type: object
       required: [coverUrl, coverDownloadUrl, coverPositionX, coverPositionY]
@@ -457,8 +620,20 @@ components:
         coverUrl: { type: string, format: uri }
         coverDownloadUrl:
           { type: string, format: uri, description: R2 replies with Content-Disposition attachment }
-        coverPositionX: { type: integer, minimum: 0, maximum: 100, description: CSS object-position x % (default 50) }
-        coverPositionY: { type: integer, minimum: 0, maximum: 100, description: CSS object-position y % (default 50) }
+        coverPositionX:
+          {
+            type: integer,
+            minimum: 0,
+            maximum: 100,
+            description: CSS object-position x % (default 50),
+          }
+        coverPositionY:
+          {
+            type: integer,
+            minimum: 0,
+            maximum: 100,
+            description: CSS object-position y % (default 50),
+          }
     Media:
       type: object
       required: [id, contentId, uploaderId, filename, contentType, sizeBytes, status, createdAt]

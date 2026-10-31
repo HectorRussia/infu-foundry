@@ -43,6 +43,7 @@ func run(logger *slog.Logger) error {
 		logger.Info("database connected")
 		contentStore := contents.NewStore(db.ORM)
 		opts.Contents = contentStore
+		opts.Categories = contentStore
 		opts.Auth = auth.NewStore(db.ORM)
 		if cfg.R2.Complete() {
 			opts.Media = media.NewStore(db.ORM)

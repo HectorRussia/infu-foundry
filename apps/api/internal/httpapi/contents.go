@@ -13,7 +13,7 @@ import (
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 type ContentStore interface {
-	List(ctx context.Context) ([]contents.Summary, error)
+	List(ctx context.Context, filter contents.ListFilter) ([]contents.Summary, error)
 	Get(ctx context.Context, id string) (contents.Content, error)
 	Create(ctx context.Context, authorID string, in contents.Input) (contents.Content, error)
 	Update(ctx context.Context, id string, in contents.Input) (contents.Content, error)
@@ -73,15 +73,24 @@ func registerContents(router fiber.Router, store ContentStore, storage MediaStor
 		return in, nil
 	}
 	storeError := func(err error) error {
-		if errors.Is(err, contents.ErrNotFound) {
+		switch {
+		case errors.Is(err, contents.ErrNotFound):
 			return fiber.ErrNotFound
+		case errors.Is(err, contents.ErrCategoryNotFound):
+			// 422, not 404: a missing category must not look like a missing content.
+			return fiber.ErrUnprocessableEntity
+		default:
+			return err
 		}
-		return err
 	}
 
 	group := router.Group("/contents", append([]any{noStore}, guards...)...)
 	group.Get("", func(c fiber.Ctx) error {
-		items, err := store.List(c.Context())
+		filter := contents.ListFilter{Category: c.Query("category")}
+		if filter.Category != "" && filter.Category != contents.Uncategorized && !uuidPattern.MatchString(filter.Category) {
+			return fiber.ErrUnprocessableEntity
+		}
+		items, err := store.List(c.Context(), filter)
 		if err != nil {
 			return err
 		}
@@ -99,7 +108,7 @@ func registerContents(router fiber.Router, store ContentStore, storage MediaStor
 		}
 		item, err := store.Create(c.Context(), currentUser(c).ID, in)
 		if err != nil {
-			return err
+			return storeError(err)
 		}
 		return c.Status(fiber.StatusCreated).JSON(item)
 	})
